@@ -3,16 +3,31 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $product->name }}</title>
+    <title>{{ $product->getName() }}</title>
 </head>
 <body>
     <main>
-        <p><a href="{{ route('products.index') }}">Voltar ao catálogo</a></p>
+        <p><a href="{{ route('products.index') }}">Voltar ao catalogo</a></p>
 
-        <h1>{{ $product->name }}</h1>
-        <p>{{ $product->description }}</p>
-        <p>Preço: R$ {{ number_format((float) $product->price, 2, ',', '.') }}</p>
-        <p>Estoque: {{ $product->stock }}</p>
+        @if (session('success'))
+            <p>{{ session('success') }}</p>
+        @endif
+
+        <h1>{{ $product->getName() }}</h1>
+        <p>{{ $product->getDescription() }}</p>
+        <p>SKU: {{ $product->getSku() }}</p>
+        <p>Slug: {{ $product->getSlug() }}</p>
+        <p>Preço: R$ {{ number_format($product->getPrice(), 2, ',', '.') }}</p>
+        <p>Estoque: {{ $product->getStock() }}</p>
+        <p>Status: {{ $product->getStatus()->value }}</p>
+
+        <p><a href="{{ route('products.edit', $product->getId()) }}">Editar</a></p>
+
+        <form method="POST" action="{{ route('products.destroy', $product->getId()) }}">
+            @csrf
+            @method('DELETE')
+            <button type="submit">Remover</button>
+        </form>
     </main>
 </body>
 </html>

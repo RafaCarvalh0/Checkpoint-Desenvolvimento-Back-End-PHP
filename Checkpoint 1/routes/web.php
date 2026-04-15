@@ -7,7 +7,5 @@ Route::get('/', function () {
     return view('home');
 });
 
-Route::get('/products', [ProductController::class, 'index'])->name('products.index');
-Route::get('/products/{product}', [ProductController::class, 'show'])
-    ->whereNumber('product')
-    ->name('products.show');
+Route::pattern('product', '[0-9]+');
+Route::resource('products', ProductController::class);

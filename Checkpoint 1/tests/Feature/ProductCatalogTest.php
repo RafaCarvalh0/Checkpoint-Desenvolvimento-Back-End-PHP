@@ -35,6 +35,115 @@ class ProductCatalogTest extends TestCase
         $response->assertSee('Produto Teste');
     }
 
+    public function test_product_catalog_lists_legacy_products_without_sku(): void
+    {
+        Product::query()->create([
+            'name' => 'Produto Legado',
+            'description' => 'Produto criado antes do SKU.',
+            'price' => 10,
+            'stock' => 1,
+        ]);
+
+        $response = $this->get('/products');
+
+        $response->assertOk();
+        $response->assertSee('Produto Legado');
+        $response->assertSee('PROD-1');
+    }
+
+    public function test_product_can_be_created_from_html_form(): void
+    {
+        $response = $this->post('/products', [
+            'name' => 'Cafeteira',
+            'description' => 'Cafeteira eletrica',
+            'price' => 199.90,
+            'sku' => 'CAF-001',
+            'stock' => 6,
+            'status' => 'active',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'Produto criado com sucesso.');
+
+        $this->assertDatabaseHas('products', [
+            'name' => 'Cafeteira',
+            'sku' => 'CAF-001',
+            'stock' => 6,
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_product_can_be_updated_from_html_form(): void
+    {
+        $product = Product::query()->create([
+            'name' => 'Produto Antigo',
+            'description' => 'Descricao antiga',
+            'price' => 10,
+            'sku' => 'OLD-001',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+
+        $response = $this->put("/products/{$product->id}", [
+            'name' => 'Produto Novo',
+            'description' => 'Descricao nova',
+            'price' => 25.50,
+            'sku' => 'NEW-001',
+            'stock' => 3,
+            'status' => 'inactive',
+        ]);
+
+        $response->assertRedirect(route('products.show', $product->id));
+        $response->assertSessionHas('success', 'Produto atualizado com sucesso.');
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'name' => 'Produto Novo',
+            'sku' => 'NEW-001',
+            'stock' => 3,
+            'status' => 'inactive',
+        ]);
+    }
+
+    public function test_product_can_be_deleted_from_html_form(): void
+    {
+        $product = Product::query()->create([
+            'name' => 'Produto Removivel',
+            'description' => null,
+            'price' => 10,
+            'sku' => 'DEL-001',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+
+        $response = $this->delete("/products/{$product->id}");
+
+        $response->assertRedirect(route('products.index'));
+        $response->assertSessionHas('success', 'Produto removido com sucesso.');
+
+        $this->assertDatabaseMissing('products', [
+            'id' => $product->id,
+        ]);
+    }
+
+    public function test_product_index_can_return_json(): void
+    {
+        Product::query()->create([
+            'name' => 'Produto JSON',
+            'description' => null,
+            'price' => 15,
+            'sku' => 'JSON-001',
+            'stock' => 2,
+            'status' => 'active',
+        ]);
+
+        $response = $this->getJson('/products');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.0.name', 'Produto JSON');
+        $response->assertJsonPath('data.0.slug', 'produto-json');
+    }
+
     public function test_missing_product_returns_404(): void
     {
         $response = $this->get('/products/999');

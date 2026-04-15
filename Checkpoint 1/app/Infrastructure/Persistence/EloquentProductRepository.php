@@ -69,6 +69,19 @@ class EloquentProductRepository implements ProductRepositoryInterface
         return $this->adjustStock($id, -$quantity);
     }
 
+    public function delete(int $id): void
+    {
+        DB::transaction(function () use ($id): void {
+            $model = ProductModel::query()->lockForUpdate()->find($id);
+
+            if (! $model) {
+                throw new ProductNotFoundException($id);
+            }
+
+            $model->delete();
+        });
+    }
+
     public function findById(int $id): ?DomainProduct
     {
         $model = ProductModel::query()->find($id);
@@ -122,11 +135,18 @@ class EloquentProductRepository implements ProductRepositoryInterface
             name: $model->name,
             description: $model->description,
             price: (float) $model->price,
-            sku: (string) $model->sku,
+            sku: $this->skuFromModel($model),
             stock: (int) $model->stock,
-            status: ProductStatus::from($model->status),
+            status: ProductStatus::tryFrom((string) $model->status) ?? ProductStatus::Active,
             id: (int) $model->id,
         );
+    }
+
+    private function skuFromModel(ProductModel $model): string
+    {
+        $sku = trim((string) $model->sku);
+
+        return $sku !== '' ? $sku : "PROD-{$model->id}";
     }
 
     /**

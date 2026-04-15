@@ -22,6 +22,8 @@ interface ProductRepositoryInterface
 
     public function decreaseStock(int $id, int $quantity): Product;
 
+    public function delete(int $id): void;
+
     public function findById(int $id): ?Product;
 
     /**
