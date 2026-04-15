@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
@@ -10,7 +11,9 @@ class Product extends Model
         'name',
         'description',
         'price',
+        'sku',
         'stock',
+        'status',
     ];
 
     protected function casts(): array
@@ -19,5 +22,10 @@ class Product extends Model
             'price' => 'decimal:2',
             'stock' => 'integer',
         ];
+    }
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(ProductImage::class);
     }
 }

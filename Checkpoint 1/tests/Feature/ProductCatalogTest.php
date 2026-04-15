@@ -24,7 +24,9 @@ class ProductCatalogTest extends TestCase
             'name' => 'Produto Teste',
             'description' => 'Produto usado no teste automatizado.',
             'price' => 19.90,
+            'sku' => 'PROD-TESTE-001',
             'stock' => 5,
+            'status' => 'active',
         ]);
 
         $response = $this->get('/products');
