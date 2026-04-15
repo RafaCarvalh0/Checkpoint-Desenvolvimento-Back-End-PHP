@@ -77,8 +77,8 @@ class ProductApiTest extends TestCase
         $response->assertJsonPath('meta.offset', 1);
         $response->assertJsonPath('meta.total', 3);
         $response->assertJsonPath('meta.order_tiebreaker', 'id');
-        $this->assertNotNull($response->json('links.prev'));
-        $this->assertNotNull($response->json('links.next'));
+        $this->assertNotNull($response->json('meta.links.prev'));
+        $this->assertNotNull($response->json('meta.links.next'));
     }
 
     public function test_products_can_be_filtered(): void
@@ -163,6 +163,18 @@ class ProductApiTest extends TestCase
         $response = $this->getJson('/api/v1/products/produto-inexistente');
 
         $response->assertNotFound();
-        $response->assertJsonPath('message', 'Produto não encontrado.');
+        $response->assertJsonPath('data', null);
+        $response->assertJsonPath('meta.status', 404);
+        $response->assertJsonPath('errors.0.message', 'Produto não encontrado.');
+    }
+
+    public function test_product_api_returns_400_for_invalid_pagination_parameter(): void
+    {
+        $response = $this->getJson('/api/v1/products?limit=abc');
+
+        $response->assertBadRequest();
+        $response->assertJsonPath('data', null);
+        $response->assertJsonPath('meta.status', 400);
+        $response->assertJsonPath('errors.0.message', 'O parâmetro limit deve ser numérico.');
     }
 }

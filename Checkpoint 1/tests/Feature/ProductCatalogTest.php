@@ -426,8 +426,12 @@ class ProductCatalogTest extends TestCase
         ]);
 
         $response->assertUnprocessable();
-        $response->assertJsonValidationErrors(['name', 'price', 'sku', 'stock', 'status']);
-        $response->assertJsonPath('errors.name.0', 'Informe o nome do produto.');
+        $response->assertJsonPath('data', null);
+        $response->assertJsonPath('meta.status', 422);
+        $response->assertJsonFragment([
+            'field' => 'name',
+            'message' => 'Informe o nome do produto.',
+        ]);
     }
 
     public function test_missing_product_returns_404(): void

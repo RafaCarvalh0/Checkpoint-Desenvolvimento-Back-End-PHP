@@ -7,6 +7,8 @@ use App\Domain\Products\ProductFilters;
 use App\Domain\Products\ProductStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Product as ProductModel;
+use App\Support\Http\ApiResponse;
+use InvalidArgumentException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -55,12 +57,12 @@ class ProductController extends Controller
         $perPage = $this->perPage($request->query('per_page'));
         $products = $query->paginate($perPage)->withQueryString();
 
-        return response()->json([
-            'data' => $products
+        return ApiResponse::success(
+            $products
                 ->getCollection()
                 ->map(fn (ProductModel $product): array => $this->serialize($product))
                 ->values(),
-            'meta' => [
+            [
                 'current_page' => $products->currentPage(),
                 'per_page' => $products->perPage(),
                 'total' => $products->total(),
@@ -69,14 +71,14 @@ class ProductController extends Controller
                 'direction' => $direction,
                 'order_tiebreaker' => 'id',
                 'filters' => $filters,
+                'links' => [
+                    'first' => $products->url(1),
+                    'last' => $products->url($products->lastPage()),
+                    'prev' => $products->previousPageUrl(),
+                    'next' => $products->nextPageUrl(),
+                ],
             ],
-            'links' => [
-                'first' => $products->url(1),
-                'last' => $products->url($products->lastPage()),
-                'prev' => $products->previousPageUrl(),
-                'next' => $products->nextPageUrl(),
-            ],
-        ]);
+        );
     }
 
     private function offsetResponse(
@@ -94,11 +96,11 @@ class ProductController extends Controller
             ->limit($limit)
             ->get();
 
-        return response()->json([
-            'data' => $products
+        return ApiResponse::success(
+            $products
                 ->map(fn (ProductModel $product): array => $this->serialize($product))
                 ->values(),
-            'meta' => [
+            [
                 'limit' => $limit,
                 'offset' => $offset,
                 'total' => $total,
@@ -106,16 +108,16 @@ class ProductController extends Controller
                 'direction' => $direction,
                 'order_tiebreaker' => 'id',
                 'filters' => $filters,
+                'links' => [
+                    'prev' => $offset > 0
+                        ? $this->offsetUrl($request, max(0, $offset - $limit), $limit)
+                        : null,
+                    'next' => ($offset + $limit) < $total
+                        ? $this->offsetUrl($request, $offset + $limit, $limit)
+                        : null,
+                ],
             ],
-            'links' => [
-                'prev' => $offset > 0
-                    ? $this->offsetUrl($request, max(0, $offset - $limit), $limit)
-                    : null,
-                'next' => ($offset + $limit) < $total
-                    ? $this->offsetUrl($request, $offset + $limit, $limit)
-                    : null,
-            ],
-        ]);
+        );
     }
 
     public function show(string $product): JsonResponse
@@ -125,14 +127,10 @@ class ProductController extends Controller
             : $this->findBySlug($product);
 
         if (! $productModel) {
-            return response()->json([
-                'message' => 'Produto não encontrado.',
-            ], 404);
+            return ApiResponse::error('Produto não encontrado.', 404);
         }
 
-        return response()->json([
-            'data' => $this->serialize($productModel),
-        ]);
+        return ApiResponse::success($this->serialize($productModel));
     }
 
     /**
@@ -229,6 +227,10 @@ class ProductController extends Controller
 
     private function perPage(mixed $perPage): int
     {
+        if ($perPage !== null && ! is_numeric($perPage)) {
+            throw new InvalidArgumentException('O parâmetro per_page deve ser numérico.');
+        }
+
         if (! is_numeric($perPage)) {
             return self::DEFAULT_PER_PAGE;
         }
@@ -238,6 +240,10 @@ class ProductController extends Controller
 
     private function limit(mixed $limit): int
     {
+        if ($limit !== null && ! is_numeric($limit)) {
+            throw new InvalidArgumentException('O parâmetro limit deve ser numérico.');
+        }
+
         if (! is_numeric($limit)) {
             return self::DEFAULT_LIMIT;
         }
@@ -247,6 +253,10 @@ class ProductController extends Controller
 
     private function offset(mixed $offset): int
     {
+        if ($offset !== null && ! is_numeric($offset)) {
+            throw new InvalidArgumentException('O parâmetro offset deve ser numérico.');
+        }
+
         if (! is_numeric($offset)) {
             return 0;
         }
