@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
 class ProductCatalogTest extends TestCase
@@ -306,6 +307,23 @@ class ProductCatalogTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_login_is_rate_limited(): void
+    {
+        RateLimiter::clear('blocked@example.com|127.0.0.1');
+
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $this->from('/login')->post('/login', [
+                'email' => 'blocked@example.com',
+                'password' => 'wrong-password',
+            ])->assertRedirect('/login');
+        }
+
+        $this->from('/login')->post('/login', [
+            'email' => 'blocked@example.com',
+            'password' => 'wrong-password',
+        ])->assertTooManyRequests();
+    }
+
     public function test_register_page_is_available(): void
     {
         $response = $this->get('/register');
@@ -317,8 +335,8 @@ class ProductCatalogTest extends TestCase
     public function test_user_can_register(): void
     {
         $response = $this->post('/register', [
-            'name' => 'Usuario Teste',
-            'email' => 'usuario@example.com',
+            'name' => ' Usuario Teste ',
+            'email' => ' USUARIO@EXAMPLE.COM ',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
@@ -332,6 +350,31 @@ class ProductCatalogTest extends TestCase
             'email' => 'usuario@example.com',
             'role' => 'user',
         ]);
+    }
+
+    public function test_product_write_routes_are_rate_limited(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        RateLimiter::clear("user:{$user->id}");
+
+        for ($attempt = 1; $attempt <= 30; $attempt++) {
+            $this->postJson('/products', [
+                'name' => '',
+                'price' => 'abc',
+                'sku' => '',
+                'stock' => -1,
+                'status' => 'invalid',
+            ])->assertUnprocessable();
+        }
+
+        $this->postJson('/products', [
+            'name' => '',
+            'price' => 'abc',
+            'sku' => '',
+            'stock' => -1,
+            'status' => 'invalid',
+        ])->assertTooManyRequests();
     }
 
     public function test_user_registration_validates_duplicate_email(): void

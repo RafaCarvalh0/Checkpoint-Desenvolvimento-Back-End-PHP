@@ -18,6 +18,11 @@ class RegisterController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $request->merge([
+            'name' => trim((string) $request->input('name')),
+            'email' => strtolower(trim((string) $request->input('email'))),
+        ]);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],

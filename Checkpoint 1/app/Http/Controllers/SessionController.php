@@ -16,6 +16,10 @@ class SessionController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $request->merge([
+            'email' => strtolower(trim((string) $request->input('email'))),
+        ]);
+
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],

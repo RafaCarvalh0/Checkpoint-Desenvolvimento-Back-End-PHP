@@ -15,13 +15,17 @@ Route::pattern('product', '[0-9]+');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [SessionController::class, 'create'])->name('login');
-    Route::post('/login', [SessionController::class, 'store'])->name('login.store');
+    Route::post('/login', [SessionController::class, 'store'])
+        ->middleware('throttle:auth-actions')
+        ->name('login.store');
     Route::get('/register', [RegisterController::class, 'create'])->name('register');
-    Route::post('/register', [RegisterController::class, 'store'])->name('register.store');
+    Route::post('/register', [RegisterController::class, 'store'])
+        ->middleware('throttle:auth-actions')
+        ->name('register.store');
 });
 
 Route::post('/logout', [SessionController::class, 'destroy'])
-    ->middleware('auth')
+    ->middleware(['auth', 'throttle:auth-actions'])
     ->name('logout');
 
 Route::resource('products', ProductController::class)
@@ -29,4 +33,4 @@ Route::resource('products', ProductController::class)
 
 Route::resource('products', ProductController::class)
     ->except(['index', 'show'])
-    ->middleware('auth');
+    ->middleware(['auth', 'throttle:product-writes']);
