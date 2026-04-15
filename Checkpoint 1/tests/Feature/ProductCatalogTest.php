@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -10,12 +11,13 @@ class ProductCatalogTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_home_page_is_available(): void
+    public function test_home_redirects_authenticated_user_to_products(): void
     {
+        $this->actingAs(User::factory()->create());
+
         $response = $this->get('/');
 
-        $response->assertOk();
-        $response->assertSee('Checkpoint 1');
+        $response->assertRedirect(route('products.index'));
     }
 
     public function test_product_catalog_lists_products(): void
@@ -53,6 +55,8 @@ class ProductCatalogTest extends TestCase
 
     public function test_product_can_be_created_from_html_form(): void
     {
+        $this->actingAs(User::factory()->create());
+
         $response = $this->post('/products', [
             'name' => 'Cafeteira',
             'description' => 'Cafeteira eletrica',
@@ -75,6 +79,8 @@ class ProductCatalogTest extends TestCase
 
     public function test_product_form_returns_errors_and_repopulates_input(): void
     {
+        $this->actingAs(User::factory()->create());
+
         $response = $this->from('/products/create')->post('/products', [
             'name' => ' Produto sem preco ',
             'description' => 'Descricao mantida',
@@ -92,6 +98,8 @@ class ProductCatalogTest extends TestCase
 
     public function test_product_sku_must_be_unique_on_create(): void
     {
+        $this->actingAs(User::factory()->create());
+
         Product::query()->create([
             'name' => 'Produto Existente',
             'description' => null,
@@ -117,6 +125,8 @@ class ProductCatalogTest extends TestCase
 
     public function test_product_can_be_updated_from_html_form(): void
     {
+        $this->actingAs(User::factory()->create());
+
         $product = Product::query()->create([
             'name' => 'Produto Antigo',
             'description' => 'Descricao antiga',
@@ -149,6 +159,8 @@ class ProductCatalogTest extends TestCase
 
     public function test_product_can_keep_same_sku_on_update(): void
     {
+        $this->actingAs(User::factory()->create());
+
         $product = Product::query()->create([
             'name' => 'Produto Atual',
             'description' => null,
@@ -179,6 +191,8 @@ class ProductCatalogTest extends TestCase
 
     public function test_product_sku_must_be_unique_on_update(): void
     {
+        $this->actingAs(User::factory()->create());
+
         Product::query()->create([
             'name' => 'Produto A',
             'description' => null,
@@ -211,6 +225,8 @@ class ProductCatalogTest extends TestCase
 
     public function test_product_can_be_deleted_from_html_form(): void
     {
+        $this->actingAs(User::factory()->admin()->create());
+
         $product = Product::query()->create([
             'name' => 'Produto Removivel',
             'description' => null,
@@ -228,6 +244,112 @@ class ProductCatalogTest extends TestCase
         $this->assertDatabaseMissing('products', [
             'id' => $product->id,
         ]);
+    }
+
+    public function test_guest_is_redirected_from_administrative_product_routes(): void
+    {
+        $product = Product::query()->create([
+            'name' => 'Produto Protegido',
+            'description' => null,
+            'price' => 10,
+            'sku' => 'AUTH-001',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+
+        $this->get('/products/create')->assertRedirect('/login');
+        $this->post('/products', [])->assertRedirect('/login');
+        $this->get("/products/{$product->id}/edit")->assertRedirect('/login');
+        $this->put("/products/{$product->id}", [])->assertRedirect('/login');
+        $this->delete("/products/{$product->id}")->assertRedirect('/login');
+    }
+
+    public function test_non_admin_user_cannot_delete_product(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $product = Product::query()->create([
+            'name' => 'Produto Restrito',
+            'description' => null,
+            'price' => 10,
+            'sku' => 'AUTH-002',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+
+        $this->delete("/products/{$product->id}")->assertForbidden();
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+        ]);
+    }
+
+    public function test_login_and_logout_flow(): void
+    {
+        User::factory()->create([
+            'email' => 'admin@example.com',
+            'password' => 'password',
+            'role' => 'admin',
+        ]);
+
+        $login = $this->post('/login', [
+            'email' => 'admin@example.com',
+            'password' => 'password',
+        ]);
+
+        $login->assertRedirect(route('products.index'));
+        $this->assertAuthenticated();
+
+        $logout = $this->post('/logout');
+
+        $logout->assertRedirect(route('login'));
+        $this->assertGuest();
+    }
+
+    public function test_register_page_is_available(): void
+    {
+        $response = $this->get('/register');
+
+        $response->assertOk();
+        $response->assertSee('Cadastrar usuario');
+    }
+
+    public function test_user_can_register(): void
+    {
+        $response = $this->post('/register', [
+            'name' => 'Usuario Teste',
+            'email' => 'usuario@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('products.index'));
+        $response->assertSessionHas('success', 'Cadastro realizado com sucesso.');
+        $this->assertAuthenticated();
+
+        $this->assertDatabaseHas('users', [
+            'name' => 'Usuario Teste',
+            'email' => 'usuario@example.com',
+            'role' => 'user',
+        ]);
+    }
+
+    public function test_user_registration_validates_duplicate_email(): void
+    {
+        User::factory()->create([
+            'email' => 'usuario@example.com',
+        ]);
+
+        $response = $this->from('/register')->post('/register', [
+            'name' => 'Usuario Teste',
+            'email' => 'usuario@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertRedirect('/register');
+        $response->assertSessionHasErrors(['email']);
+        $response->assertSessionHasInput('email', 'usuario@example.com');
     }
 
     public function test_product_index_can_return_json(): void
@@ -250,6 +372,8 @@ class ProductCatalogTest extends TestCase
 
     public function test_product_validation_returns_json_errors(): void
     {
+        $this->actingAs(User::factory()->create());
+
         $response = $this->postJson('/products', [
             'name' => '',
             'price' => 'abc',

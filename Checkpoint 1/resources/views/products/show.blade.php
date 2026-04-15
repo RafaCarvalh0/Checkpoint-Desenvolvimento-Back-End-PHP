@@ -21,13 +21,19 @@
         <p>Estoque: {{ $product->getStock() }}</p>
         <p>Status: {{ $product->getStatus()->value }}</p>
 
-        <p><a href="{{ route('products.edit', $product->getId()) }}">Editar</a></p>
+        @auth
+            <p><a href="{{ route('products.edit', $product->getId()) }}">Editar</a></p>
 
-        <form method="POST" action="{{ route('products.destroy', $product->getId()) }}">
-            @csrf
-            @method('DELETE')
-            <button type="submit">Remover</button>
-        </form>
+            @if (auth()->user()->isAdmin())
+                <form method="POST" action="{{ route('products.destroy', $product->getId()) }}">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit">Remover</button>
+                </form>
+            @endif
+        @else
+            <p><a href="{{ route('login') }}">Entrar para administrar</a></p>
+        @endauth
     </main>
 </body>
 </html>

@@ -7,6 +7,8 @@ use App\Domain\Products\ProductRepositoryInterface;
 use App\Domain\Products\ProductStatus;
 use App\Exceptions\ProductNotFoundException;
 use App\Http\Requests\ProductRequest;
+use App\Models\Product as ProductModel;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -109,6 +111,14 @@ class ProductController extends Controller
 
     public function destroy(Request $request, int $product): RedirectResponse|JsonResponse
     {
+        $productModel = ProductModel::query()->find($product);
+
+        if (! $productModel) {
+            throw new ProductNotFoundException($product);
+        }
+
+        Gate::authorize('delete', $productModel);
+
         $this->products->delete($product);
 
         if ($request->expectsJson()) {
