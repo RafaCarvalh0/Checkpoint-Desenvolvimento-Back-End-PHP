@@ -38,6 +38,47 @@ class ProductApiTest extends TestCase
         $response->assertJsonPath('meta.total', 2);
         $response->assertJsonPath('meta.sort', 'price');
         $response->assertJsonPath('meta.direction', 'desc');
+        $response->assertJsonPath('meta.order_tiebreaker', 'id');
+    }
+
+    public function test_products_can_be_listed_with_limit_and_offset(): void
+    {
+        Product::query()->create([
+            'name' => 'Produto A',
+            'description' => null,
+            'price' => 10,
+            'sku' => 'PROD-A',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+        Product::query()->create([
+            'name' => 'Produto B',
+            'description' => null,
+            'price' => 10,
+            'sku' => 'PROD-B',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+        Product::query()->create([
+            'name' => 'Produto C',
+            'description' => null,
+            'price' => 10,
+            'sku' => 'PROD-C',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+
+        $response = $this->getJson('/api/v1/products?sort=name&direction=asc&limit=1&offset=1');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.name', 'Produto B');
+        $response->assertJsonPath('meta.limit', 1);
+        $response->assertJsonPath('meta.offset', 1);
+        $response->assertJsonPath('meta.total', 3);
+        $response->assertJsonPath('meta.order_tiebreaker', 'id');
+        $this->assertNotNull($response->json('links.prev'));
+        $this->assertNotNull($response->json('links.next'));
     }
 
     public function test_products_can_be_filtered(): void

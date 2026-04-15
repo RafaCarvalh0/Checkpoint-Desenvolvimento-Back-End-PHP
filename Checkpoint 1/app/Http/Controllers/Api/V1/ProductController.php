@@ -16,6 +16,8 @@ class ProductController extends Controller
 {
     private const DEFAULT_PER_PAGE = 10;
     private const MAX_PER_PAGE = 50;
+    private const DEFAULT_LIMIT = 10;
+    private const MAX_LIMIT = 50;
 
     /**
      * @var array<string, string>
@@ -32,12 +34,26 @@ class ProductController extends Controller
         $filters = ProductFilters::fromArray($request->query());
         $sort = $this->sortColumn((string) $request->query('sort', 'name'));
         $direction = $this->sortDirection((string) $request->query('direction', 'asc'));
-        $perPage = $this->perPage($request->query('per_page'));
-
-        $products = $this->filteredQuery($filters)
+        $query = $this->filteredQuery($filters)
             ->orderBy($sort, $direction)
-            ->paginate($perPage)
-            ->withQueryString();
+            ->orderBy('id', 'asc');
+
+        if ($request->query->has('offset') || $request->query->has('limit')) {
+            return $this->offsetResponse($query, $filters, $sort, $direction, $request);
+        }
+
+        return $this->paginatedResponse($query, $filters, $sort, $direction, $request);
+    }
+
+    private function paginatedResponse(
+        Builder $query,
+        array $filters,
+        string $sort,
+        string $direction,
+        Request $request
+    ): JsonResponse {
+        $perPage = $this->perPage($request->query('per_page'));
+        $products = $query->paginate($perPage)->withQueryString();
 
         return response()->json([
             'data' => $products
@@ -51,6 +67,7 @@ class ProductController extends Controller
                 'last_page' => $products->lastPage(),
                 'sort' => array_search($sort, self::SORT_COLUMNS, true) ?: 'name',
                 'direction' => $direction,
+                'order_tiebreaker' => 'id',
                 'filters' => $filters,
             ],
             'links' => [
@@ -58,6 +75,45 @@ class ProductController extends Controller
                 'last' => $products->url($products->lastPage()),
                 'prev' => $products->previousPageUrl(),
                 'next' => $products->nextPageUrl(),
+            ],
+        ]);
+    }
+
+    private function offsetResponse(
+        Builder $query,
+        array $filters,
+        string $sort,
+        string $direction,
+        Request $request
+    ): JsonResponse {
+        $limit = $this->limit($request->query('limit'));
+        $offset = $this->offset($request->query('offset'));
+        $total = (clone $query)->count();
+        $products = $query
+            ->offset($offset)
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'data' => $products
+                ->map(fn (ProductModel $product): array => $this->serialize($product))
+                ->values(),
+            'meta' => [
+                'limit' => $limit,
+                'offset' => $offset,
+                'total' => $total,
+                'sort' => array_search($sort, self::SORT_COLUMNS, true) ?: 'name',
+                'direction' => $direction,
+                'order_tiebreaker' => 'id',
+                'filters' => $filters,
+            ],
+            'links' => [
+                'prev' => $offset > 0
+                    ? $this->offsetUrl($request, max(0, $offset - $limit), $limit)
+                    : null,
+                'next' => ($offset + $limit) < $total
+                    ? $this->offsetUrl($request, $offset + $limit, $limit)
+                    : null,
             ],
         ]);
     }
@@ -178,5 +234,31 @@ class ProductController extends Controller
         }
 
         return max(1, min(self::MAX_PER_PAGE, (int) $perPage));
+    }
+
+    private function limit(mixed $limit): int
+    {
+        if (! is_numeric($limit)) {
+            return self::DEFAULT_LIMIT;
+        }
+
+        return max(1, min(self::MAX_LIMIT, (int) $limit));
+    }
+
+    private function offset(mixed $offset): int
+    {
+        if (! is_numeric($offset)) {
+            return 0;
+        }
+
+        return max(0, (int) $offset);
+    }
+
+    private function offsetUrl(Request $request, int $offset, int $limit): string
+    {
+        return $request->fullUrlWithQuery([
+            'offset' => $offset,
+            'limit' => $limit,
+        ]);
     }
 }
