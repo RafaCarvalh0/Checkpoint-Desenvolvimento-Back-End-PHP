@@ -6,6 +6,7 @@ use App\Domain\Products\Product as DomainProduct;
 use App\Domain\Products\ProductRepositoryInterface;
 use App\Domain\Products\ProductStatus;
 use App\Exceptions\ProductNotFoundException;
+use App\Http\Requests\ProductRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,7 +42,7 @@ class ProductController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse|JsonResponse
+    public function store(ProductRequest $request): RedirectResponse|JsonResponse
     {
         $product = $this->products->add($this->productFromRequest($request));
 
@@ -90,7 +91,7 @@ class ProductController extends Controller
         ]);
     }
 
-    public function update(Request $request, int $product): RedirectResponse|JsonResponse
+    public function update(ProductRequest $request, int $product): RedirectResponse|JsonResponse
     {
         $updated = $this->products->update($product, $this->productFromRequest($request));
 
@@ -121,16 +122,9 @@ class ProductController extends Controller
             ->with('success', 'Produto removido com sucesso.');
     }
 
-    private function productFromRequest(Request $request): DomainProduct
+    private function productFromRequest(ProductRequest $request): DomainProduct
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'description' => ['nullable', 'string'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'sku' => ['required', 'string', 'max:60', 'regex:/^[A-Za-z0-9_-]+$/'],
-            'stock' => ['required', 'integer', 'min:0'],
-            'status' => ['required', 'in:active,inactive'],
-        ]);
+        $data = $request->validated();
 
         return new DomainProduct(
             name: $data['name'],

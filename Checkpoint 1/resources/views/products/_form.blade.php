@@ -1,5 +1,16 @@
 @csrf
 
+@if ($errors->any())
+    <div>
+        <p>Corrija os campos abaixo.</p>
+        <ul>
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
 <label>
     Nome
     <input type="text" name="name" value="{{ old('name', $product?->getName()) }}" required maxlength="120">

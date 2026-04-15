@@ -73,6 +73,48 @@ class ProductCatalogTest extends TestCase
         ]);
     }
 
+    public function test_product_form_returns_errors_and_repopulates_input(): void
+    {
+        $response = $this->from('/products/create')->post('/products', [
+            'name' => ' Produto sem preco ',
+            'description' => 'Descricao mantida',
+            'price' => '',
+            'sku' => 'sku invalido',
+            'stock' => -1,
+            'status' => 'active',
+        ]);
+
+        $response->assertRedirect('/products/create');
+        $response->assertSessionHasErrors(['price', 'sku', 'stock']);
+        $response->assertSessionHasInput('name', 'Produto sem preco');
+        $response->assertSessionHasInput('description', 'Descricao mantida');
+    }
+
+    public function test_product_sku_must_be_unique_on_create(): void
+    {
+        Product::query()->create([
+            'name' => 'Produto Existente',
+            'description' => null,
+            'price' => 10,
+            'sku' => 'SKU-UNICO',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+
+        $response = $this->from('/products/create')->post('/products', [
+            'name' => 'Produto Duplicado',
+            'description' => null,
+            'price' => 20,
+            'sku' => 'sku-unico',
+            'stock' => 2,
+            'status' => 'active',
+        ]);
+
+        $response->assertRedirect('/products/create');
+        $response->assertSessionHasErrors(['sku']);
+        $response->assertSessionHasInput('sku', 'sku-unico');
+    }
+
     public function test_product_can_be_updated_from_html_form(): void
     {
         $product = Product::query()->create([
@@ -103,6 +145,68 @@ class ProductCatalogTest extends TestCase
             'stock' => 3,
             'status' => 'inactive',
         ]);
+    }
+
+    public function test_product_can_keep_same_sku_on_update(): void
+    {
+        $product = Product::query()->create([
+            'name' => 'Produto Atual',
+            'description' => null,
+            'price' => 10,
+            'sku' => 'KEEP-001',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+
+        $response = $this->put("/products/{$product->id}", [
+            'name' => 'Produto Atualizado',
+            'description' => null,
+            'price' => 12,
+            'sku' => 'keep-001',
+            'stock' => 2,
+            'status' => 'active',
+        ]);
+
+        $response->assertRedirect(route('products.show', $product->id));
+        $response->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'sku' => 'KEEP-001',
+            'name' => 'Produto Atualizado',
+        ]);
+    }
+
+    public function test_product_sku_must_be_unique_on_update(): void
+    {
+        Product::query()->create([
+            'name' => 'Produto A',
+            'description' => null,
+            'price' => 10,
+            'sku' => 'DUP-001',
+            'stock' => 1,
+            'status' => 'active',
+        ]);
+        $product = Product::query()->create([
+            'name' => 'Produto B',
+            'description' => null,
+            'price' => 15,
+            'sku' => 'DUP-002',
+            'stock' => 2,
+            'status' => 'active',
+        ]);
+
+        $response = $this->from("/products/{$product->id}/edit")->put("/products/{$product->id}", [
+            'name' => 'Produto B',
+            'description' => null,
+            'price' => 15,
+            'sku' => 'DUP-001',
+            'stock' => 2,
+            'status' => 'active',
+        ]);
+
+        $response->assertRedirect("/products/{$product->id}/edit");
+        $response->assertSessionHasErrors(['sku']);
     }
 
     public function test_product_can_be_deleted_from_html_form(): void
@@ -142,6 +246,21 @@ class ProductCatalogTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('data.0.name', 'Produto JSON');
         $response->assertJsonPath('data.0.slug', 'produto-json');
+    }
+
+    public function test_product_validation_returns_json_errors(): void
+    {
+        $response = $this->postJson('/products', [
+            'name' => '',
+            'price' => 'abc',
+            'sku' => '',
+            'stock' => -5,
+            'status' => 'invalid',
+        ]);
+
+        $response->assertUnprocessable();
+        $response->assertJsonValidationErrors(['name', 'price', 'sku', 'stock', 'status']);
+        $response->assertJsonPath('errors.name.0', 'Informe o nome do produto.');
     }
 
     public function test_missing_product_returns_404(): void
