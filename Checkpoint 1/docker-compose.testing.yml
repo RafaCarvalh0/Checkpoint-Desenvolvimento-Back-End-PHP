@@ -1,0 +1,20 @@
+services:
+  mysql_test:
+    image: mysql:8.4
+    container_name: checkpoint_1_mysql_test
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: checkpoint_1_testing
+      MYSQL_ROOT_PASSWORD: checkpoint_1
+    ports:
+      - "3307:3306"
+    volumes:
+      - checkpoint_1_mysql_test_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pcheckpoint_1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  checkpoint_1_mysql_test_data:

@@ -229,6 +229,91 @@ Execute dentro da pasta `Checkpoint 1`:
 php artisan test
 ```
 
+Os testes unitários validam domínio e serviços com mocks de `ProductRepositoryInterface`. Os testes de integração validam API + banco usando migrations, contrato JSON, status HTTP e persistência.
+
+Por padrão, o PHPUnit usa SQLite em memória para manter a suite rápida:
+
+```xml
+<env name="DB_CONNECTION" value="sqlite"/>
+<env name="DB_DATABASE" value=":memory:"/>
+```
+
+Se quiser rodar os testes de integração contra MySQL no Docker, abra o Docker Desktop e aguarde ele ficar ativo.
+
+Entre na pasta do projeto:
+
+```powershell
+cd "{Caminho}Checkpoint-Desenvolvimento-Back-End-PHP\Checkpoint 1"
+```
+
+Teste se o comando `docker` esta disponível:
+
+```powershell
+docker --version
+```
+
+Se funcionar, suba o banco de teste:
+
+```bash
+docker compose -f docker-compose.testing.yml up -d
+```
+
+Se o PowerShell mostrar que `docker` não foi reconhecido, use o caminho completo do Docker Desktop:
+
+```powershell
+Test-Path "C:\Program Files\Docker\Docker\resources\bin\docker.exe"
+```
+
+Se retornar `True`, suba o banco assim:
+
+```powershell
+& "C:\Program Files\Docker\Docker\resources\bin\docker.exe" compose -f docker-compose.testing.yml up -d
+```
+
+Confira se o container esta rodando:
+
+```powershell
+docker ps
+```
+
+Ou, usando o caminho completo:
+
+```powershell
+& "C:\Program Files\Docker\Docker\resources\bin\docker.exe" ps
+```
+
+O container esperado e `checkpoint_1_mysql_test`.
+
+Depois execute os testes sobrescrevendo as variaveis de banco no PowerShell:
+
+```powershell
+$env:DB_CONNECTION="mysql"
+$env:DB_HOST="127.0.0.1"
+$env:DB_PORT="3307"
+$env:DB_DATABASE="checkpoint_1_testing"
+$env:DB_USERNAME="root"
+$env:DB_PASSWORD="checkpoint_1"
+php artisan test
+```
+
+Resultado esperado:
+
+```text
+58 passed
+```
+
+Para parar o banco de teste:
+
+```powershell
+docker compose -f docker-compose.testing.yml down
+```
+
+Ou, usando o caminho completo:
+
+```powershell
+& "C:\Program Files\Docker\Docker\resources\bin\docker.exe" compose -f docker-compose.testing.yml down
+```
+
 ## Problemas comuns
 
 Se o PowerShell mostrar `Could not open input file: artisan`, entre na pasta correta:

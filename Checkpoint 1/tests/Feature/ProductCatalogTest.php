@@ -40,7 +40,7 @@ class ProductCatalogTest extends TestCase
 
     public function test_product_catalog_lists_legacy_products_without_sku(): void
     {
-        Product::query()->create([
+        $product = Product::query()->create([
             'name' => 'Produto Legado',
             'description' => 'Produto criado antes do SKU.',
             'price' => 10,
@@ -51,7 +51,7 @@ class ProductCatalogTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Produto Legado');
-        $response->assertSee('PROD-1');
+        $response->assertSee("PROD-{$product->id}");
     }
 
     public function test_product_can_be_created_from_html_form(): void
