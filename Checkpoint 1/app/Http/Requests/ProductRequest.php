@@ -21,6 +21,7 @@ class ProductRequest extends FormRequest
             'sku' => ['required', 'string', 'max:60', 'regex:/^[A-Za-z0-9_-]+$/', Rule::unique('products', 'sku')->ignore($this->route('product')),],
             'stock' => ['required', 'integer', 'min:0'],
             'status' => ['required', Rule::in(['active', 'inactive'])],
+            'image' => ['nullable', 'file', 'mimetypes:image/jpeg,image/png,image/webp', 'max:2048'],
         ];
     }
 
@@ -41,6 +42,9 @@ class ProductRequest extends FormRequest
             'stock.min' => 'O estoque não pode ser negativo.',
             'status.required' => 'Informe o status do produto.',
             'status.in' => 'O status informado é inválido.',
+            'image.file' => 'A imagem do produto deve ser um arquivo.',
+            'image.mimetypes' => 'A imagem deve estar em JPG, PNG ou WEBP.',
+            'image.max' => 'A imagem deve ter no máximo 2 MB.',
         ];
     }
 
@@ -53,6 +57,7 @@ class ProductRequest extends FormRequest
             'sku' => 'SKU',
             'stock' => 'estoque',
             'status' => 'status',
+            'image' => 'imagem',
         ];
     }
 

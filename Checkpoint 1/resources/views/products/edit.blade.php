@@ -10,7 +10,7 @@
         <p><a href="{{ route('products.show', $product->getId()) }}">Voltar ao produto</a></p>
         <h1>Editar Produto</h1>
 
-        <form method="POST" action="{{ route('products.update', $product->getId()) }}">
+        <form method="POST" action="{{ route('products.update', $product->getId()) }}" enctype="multipart/form-data">
             @method('PUT')
             @include('products._form', [
                 'buttonLabel' => 'Salvar produto',

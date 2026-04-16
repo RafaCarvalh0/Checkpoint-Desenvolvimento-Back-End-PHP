@@ -5,13 +5,18 @@ namespace App\Http\Controllers;
 use App\Domain\Products\Product as DomainProduct;
 use App\Domain\Products\ProductRepositoryInterface;
 use App\Domain\Products\ProductStatus;
+use App\Events\ProductCreated;
 use App\Exceptions\ProductNotFoundException;
 use App\Http\Requests\ProductRequest;
 use App\Models\Product as ProductModel;
+use App\Models\ProductImage;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class ProductController extends Controller
@@ -46,7 +51,12 @@ class ProductController extends Controller
 
     public function store(ProductRequest $request): RedirectResponse|JsonResponse
     {
-        $product = $this->products->add($this->productFromRequest($request));
+        $imageUrls = $this->uploadedImageUrls($request);
+        $product = $imageUrls === []
+            ? $this->products->add($this->productFromRequest($request))
+            : $this->products->addWithImages($this->productFromRequest($request), $imageUrls);
+
+        Event::dispatch(new ProductCreated((int) $product->getId()));
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -76,6 +86,7 @@ class ProductController extends Controller
 
         return view('products.show', [
             'product' => $productModel,
+            'images' => $this->imagesForProduct($product),
         ]);
     }
 
@@ -89,13 +100,17 @@ class ProductController extends Controller
 
         return view('products.edit', [
             'product' => $productModel,
+            'images' => $this->imagesForProduct($product),
             'statuses' => ProductStatus::cases(),
         ]);
     }
 
     public function update(ProductRequest $request, int $product): RedirectResponse|JsonResponse
     {
-        $updated = $this->products->update($product, $this->productFromRequest($request));
+        $imageUrls = $this->uploadedImageUrls($request);
+        $updated = $imageUrls === []
+            ? $this->products->update($product, $this->productFromRequest($request))
+            : $this->products->updateWithImages($product, $this->productFromRequest($request), $imageUrls);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -144,6 +159,30 @@ class ProductController extends Controller
             stock: (int) $data['stock'],
             status: ProductStatus::from($data['status']),
         );
+    }
+
+    /**
+     * @return string[]
+     */
+    private function uploadedImageUrls(ProductRequest $request): array
+    {
+        $file = $request->file('image');
+
+        if (! $file instanceof UploadedFile) {
+            return [];
+        }
+
+        $path = $file->store('products', 'public');
+
+        return $path ? [$request->getSchemeAndHttpHost().'/storage/'.$path] : [];
+    }
+
+    private function imagesForProduct(int $productId)
+    {
+        return ProductImage::query()
+            ->where('product_id', $productId)
+            ->orderBy('position')
+            ->get();
     }
 
     /**

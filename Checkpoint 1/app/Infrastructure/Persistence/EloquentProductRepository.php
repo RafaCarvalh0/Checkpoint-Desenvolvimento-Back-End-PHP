@@ -32,7 +32,17 @@ class EloquentProductRepository implements ProductRepositoryInterface
 
     public function update(int $id, DomainProduct $product): DomainProduct
     {
-        return $this->updateWithImages($id, $product, []);
+        return DB::transaction(function () use ($id, $product): DomainProduct {
+            $model = ProductModel::query()->lockForUpdate()->find($id);
+
+            if (! $model) {
+                throw new ProductNotFoundException($id);
+            }
+
+            $model->update($this->toDatabase($product));
+
+            return $this->toDomain($model->refresh());
+        });
     }
 
     public function updateWithImages(int $id, DomainProduct $product, array $imageUrls): DomainProduct

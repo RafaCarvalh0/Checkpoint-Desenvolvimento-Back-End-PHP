@@ -10,7 +10,7 @@
         <p><a href="{{ route('products.index') }}">Voltar ao catalogo</a></p>
         <h1>Novo Produto</h1>
 
-        <form method="POST" action="{{ route('products.store') }}">
+        <form method="POST" action="{{ route('products.store') }}" enctype="multipart/form-data">
             @include('products._form', [
                 'product' => null,
                 'buttonLabel' => 'Criar produto',

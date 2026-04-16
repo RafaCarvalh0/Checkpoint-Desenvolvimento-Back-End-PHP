@@ -122,6 +122,26 @@ O domínio também possui `ProductRepositoryInterface`, implementação Eloquent
 
 A persistência usa Eloquent com migrations para `products`, `product_images` e usuários. Operações críticas como criar, atualizar, remover e ajustar estoque são executadas em transações, com bloqueio em atualizações sensíveis para evitar estado parcial.
 
+## Upload e processamento assíncrono
+
+O formulário de produto aceita uma imagem opcional nos formatos JPG, PNG ou WEBP, com limite de 2 MB. Ao criar ou atualizar um produto com imagem, o arquivo é salvo no disco `public` e o vínculo é registrado em `product_images`.
+
+Ao criar um produto, a aplicação publica o evento `ProductCreated`. O listener `GenerateProductThumbnail` implementa `ShouldQueue`, então o processamento da miniatura fica preparado para rodar pela fila sem bloquear a resposta HTTP.
+
+Em ambiente local, crie o link público do storage se ainda não existir:
+
+```bash
+php artisan storage:link
+```
+
+Se `QUEUE_CONNECTION=database`, execute o worker para processar os eventos assíncronos:
+
+```bash
+php artisan queue:work
+```
+
+Em testes, a fila usa `sync`, então o listener é executado imediatamente.
+
 ## API REST
 
 A API esta versionada em `/api/v1`:
@@ -213,6 +233,8 @@ app/Http/Controllers/Api/V1/ProductController.php
 app/Http/Controllers/SessionController.php
 app/Http/Controllers/RegisterController.php
 app/Http/Requests/ProductRequest.php
+app/Events/ProductCreated.php
+app/Listeners/GenerateProductThumbnail.php
 app/Policies/ProductPolicy.php
 app/Support/Http/ApiResponse.php
 app/Support/Strings/SlugTrait.php

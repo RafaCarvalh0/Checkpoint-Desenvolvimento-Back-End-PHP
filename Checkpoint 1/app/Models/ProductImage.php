@@ -9,6 +9,7 @@ class ProductImage extends Model
 {
     protected $fillable = [
         'url',
+        'thumbnail_url',
         'position',
     ];
 

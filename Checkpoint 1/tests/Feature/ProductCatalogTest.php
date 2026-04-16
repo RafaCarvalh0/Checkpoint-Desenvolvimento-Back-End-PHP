@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Events\ProductCreated;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ProductCatalogTest extends TestCase
@@ -76,6 +80,61 @@ class ProductCatalogTest extends TestCase
             'stock' => 6,
             'status' => 'active',
         ]);
+    }
+
+    public function test_product_can_be_created_with_uploaded_image_and_dispatches_event(): void
+    {
+        Storage::fake('public');
+        Event::fake([ProductCreated::class]);
+        $this->actingAs(User::factory()->create());
+
+        $response = $this->post('/products', [
+            'name' => 'Produto com Imagem',
+            'description' => 'Produto com upload.',
+            'price' => 99.90,
+            'sku' => 'IMG-UP-001',
+            'stock' => 4,
+            'status' => 'active',
+            'image' => UploadedFile::fake()->create('produto.jpg', 32, 'image/jpeg'),
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'Produto criado com sucesso.');
+
+        $product = Product::query()->where('sku', 'IMG-UP-001')->firstOrFail();
+        $image = $product->images()->firstOrFail();
+
+        $this->assertStringStartsWith('http://localhost/storage/products/', $image->url);
+        $this->assertDatabaseHas('product_images', [
+            'product_id' => $product->id,
+            'url' => $image->url,
+            'position' => 0,
+        ]);
+
+        Event::assertDispatched(ProductCreated::class, fn (ProductCreated $event): bool => $event->productId === $product->id);
+    }
+
+    public function test_product_created_event_processes_thumbnail_as_queued_listener(): void
+    {
+        Storage::fake('public');
+        $this->actingAs(User::factory()->create());
+
+        $response = $this->post('/products', [
+            'name' => 'Produto Thumbnail',
+            'description' => 'Produto com miniatura.',
+            'price' => 120,
+            'sku' => 'IMG-THUMB-001',
+            'stock' => 8,
+            'status' => 'active',
+            'image' => UploadedFile::fake()->create('thumbnail.png', 32, 'image/png'),
+        ]);
+
+        $response->assertRedirect();
+
+        $product = Product::query()->where('sku', 'IMG-THUMB-001')->firstOrFail();
+        $image = $product->images()->firstOrFail();
+
+        $this->assertSame($image->url, $image->thumbnail_url);
     }
 
     public function test_product_form_returns_errors_and_repopulates_input(): void

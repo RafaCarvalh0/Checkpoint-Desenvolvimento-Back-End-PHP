@@ -3,11 +3,14 @@
 namespace App\Providers;
 
 use App\Domain\Products\ProductRepositoryInterface;
+use App\Events\ProductCreated;
 use App\Infrastructure\Persistence\EloquentProductRepository;
+use App\Listeners\GenerateProductThumbnail;
 use App\Models\Product;
 use App\Policies\ProductPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -31,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Product::class, ProductPolicy::class);
+        Event::listen(ProductCreated::class, GenerateProductThumbnail::class);
 
         RateLimiter::for('auth-actions', function (Request $request): Limit {
             $email = strtolower((string) $request->input('email'));

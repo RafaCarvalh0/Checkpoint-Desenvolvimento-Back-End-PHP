@@ -65,4 +65,23 @@
     <p>{{ $message }}</p>
 @enderror
 
+<label>
+    Imagem do produto
+    <input type="file" name="image" accept="image/jpeg,image/png,image/webp">
+</label>
+@error('image')
+    <p>{{ $message }}</p>
+@enderror
+
+@isset($images)
+    @if ($images->isNotEmpty())
+        <div>
+            <p>Imagem atual</p>
+            @foreach ($images as $image)
+                <img src="{{ $image->thumbnail_url ?? $image->url }}" alt="Imagem de {{ $product->getName() }}" width="120">
+            @endforeach
+        </div>
+    @endif
+@endisset
+
 <button type="submit">{{ $buttonLabel }}</button>

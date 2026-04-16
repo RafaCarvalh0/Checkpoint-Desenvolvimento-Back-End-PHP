@@ -21,6 +21,15 @@
         <p>Estoque: {{ $product->getStock() }}</p>
         <p>Status: {{ $product->getStatus()->value }}</p>
 
+        @if ($images->isNotEmpty())
+            <section>
+                <h2>Imagens</h2>
+                @foreach ($images as $image)
+                    <img src="{{ $image->thumbnail_url ?? $image->url }}" alt="Imagem de {{ $product->getName() }}" width="160">
+                @endforeach
+            </section>
+        @endif
+
         @auth
             <p><a href="{{ route('products.edit', $product->getId()) }}">Editar</a></p>
 
