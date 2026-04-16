@@ -231,6 +231,31 @@ php artisan test
 
 Os testes unitários validam domínio e serviços com mocks de `ProductRepositoryInterface`. Os testes de integração validam API + banco usando migrations, contrato JSON, status HTTP e persistência.
 
+O projeto também possui BDD com Behat para documentar e automatizar o fluxo principal de cadastro de usuário:
+
+```bash
+vendor/bin/behat
+```
+
+No Windows, também pode ser executado com:
+
+```powershell
+vendor\bin\behat.bat
+```
+
+O cenário fica em:
+
+```text
+features/cadastro_usuario.feature
+```
+
+Ele valida:
+
+- cadastro de visitante com dados válidos;
+- bloqueio de e-mail duplicado;
+- bloqueio de senha com confirmação incorreta;
+- criação do primeiro produto após cadastro e autenticação.
+
 Por padrão, o PHPUnit usa SQLite em memória para manter a suite rápida:
 
 ```xml

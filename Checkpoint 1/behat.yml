@@ -1,0 +1,7 @@
+default:
+  suites:
+    cadastro_usuario:
+      paths:
+        - features
+      contexts:
+        - FeatureContext
