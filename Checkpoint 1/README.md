@@ -7,15 +7,22 @@ Projeto Laravel para catálogo de produtos com estrutura MVC, dominio orientado 
 - PHP 8.2 ou superior
 - Composer
 - MySQL
+- Node.js e npm
 
 ## Configuração
 
-Instale as dependências e prepare o ambiente:
+Instale as dependências PHP e prepare o ambiente:
 
 ```bash
 composer install
 cp .env.example .env
 php artisan key:generate
+```
+
+Instale as dependências do front-end React:
+
+```bash
+npm install
 ```
 
 Configure o banco no `.env`:
@@ -59,8 +66,24 @@ Senha: password
 
 ## Executar
 
+O front-end do projeto usa React com Vite. Em desenvolvimento, mantenha dois terminais abertos dentro da pasta `Checkpoint 1`.
+
+Terminal 1, servidor Laravel:
+
 ```bash
 php artisan serve
+```
+
+Terminal 2, servidor Vite/React:
+
+```bash
+npm run dev
+```
+
+Sem o `npm run dev`, as telas React podem não carregar corretamente em ambiente local. Para gerar os assets de produção, execute:
+
+```bash
+npm run build
 ```
 
 URLs principais:
@@ -89,7 +112,7 @@ PUT    /products/{product}       Atualiza produto
 DELETE /products/{product}       Remove produto
 ```
 
-As telas usam validação de formulário, mensagens por sessão, repopulação de campos em caso de erro, proteção CSRF e escaping padrão do Blade.
+As telas web são renderizadas em React e recebem dados seguros do Laravel via Blade. As ações de formulário continuam usando validação no backend, mensagens por sessão, repopulação de campos em caso de erro, proteção CSRF e escaping padrão.
 
 ## Autenticacao e autorizacao
 
@@ -238,6 +261,9 @@ app/Listeners/GenerateProductThumbnail.php
 app/Policies/ProductPolicy.php
 app/Support/Http/ApiResponse.php
 app/Support/Strings/SlugTrait.php
+resources/js/app.jsx
+resources/css/app.css
+resources/views/layouts/react.blade.php
 docs/openapi.yaml
 routes/web.php
 routes/api.php

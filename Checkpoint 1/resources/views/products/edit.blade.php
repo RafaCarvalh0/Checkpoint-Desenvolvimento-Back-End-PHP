@@ -1,21 +1,28 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Editar Produto</title>
-</head>
-<body>
-    <main>
-        <p><a href="{{ route('products.show', $product->getId()) }}">Voltar ao produto</a></p>
-        <h1>Editar Produto</h1>
+@extends('layouts.react')
 
-        <form method="POST" action="{{ route('products.update', $product->getId()) }}" enctype="multipart/form-data">
-            @method('PUT')
-            @include('products._form', [
-                'buttonLabel' => 'Salvar produto',
-            ])
-        </form>
-    </main>
-</body>
-</html>
+@php
+    $title = 'Editar Produto';
+    $appProps = [
+        'page' => 'products.form',
+        'mode' => 'edit',
+        'errors' => $errors->all(),
+        'product' => [
+            'id' => $product->getId(),
+            'name' => old('name', $product->getName()),
+            'description' => old('description', $product->getDescription()),
+            'price' => old('price', $product->getPrice()),
+            'sku' => old('sku', $product->getSku()),
+            'stock' => old('stock', $product->getStock()),
+            'status' => old('status', $product->getStatus()->value),
+        ],
+        'statuses' => array_map(static fn ($status): array => [
+            'value' => $status->value,
+            'label' => $status->value === 'active' ? 'Ativo' : 'Inativo',
+        ], $statuses),
+        'images' => $images->map(static fn ($image): array => [
+            'id' => $image->id,
+            'url' => $image->url,
+            'thumbnail_url' => $image->thumbnail_url,
+        ])->values()->all(),
+    ];
+@endphp
