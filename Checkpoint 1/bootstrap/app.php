@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ProductNotFoundException;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Support\Http\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -9,6 +10,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -19,7 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->web(append: [
+            HandleInertiaRequests::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (ProductNotFoundException $exception, Request $request) {
@@ -29,9 +33,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 404);
             }
 
-            return response()->view('errors.product-not-found', [
+            return Inertia::render('Errors/ProductNotFound', [
                 'message' => 'Produto não encontrado.',
-            ], 404);
+            ])->toResponse($request)->setStatusCode(404);
         });
 
         $exceptions->render(function (ValidationException $exception, Request $request) {
