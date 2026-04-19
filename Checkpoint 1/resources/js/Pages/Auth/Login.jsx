@@ -9,7 +9,7 @@ export default function Login({ errors = {}, old = {} }) {
             <Head title="Login" />
             <section className="auth-layout">
                 <div>
-                    <p className="eyebrow">Area administrativa</p>
+                    <p className="eyebrow">Área administrativa</p>
                     <h1>Entrar</h1>
                     <p className="lead">Acesse sua conta para cadastrar, editar e controlar os produtos.</p>
                 </div>

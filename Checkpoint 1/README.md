@@ -114,6 +114,8 @@ DELETE /products/{product}       Remove produto
 
 As telas web são renderizadas em React com Inertia. Os controllers Laravel retornam componentes Inertia com props serializadas de forma segura, enquanto as ações de formulário continuam usando validação no backend, mensagens por sessão, repopulação de campos em caso de erro, proteção CSRF e escaping padrão.
 
+A interface possui modo claro e modo noturno, com preferência salva no navegador via `localStorage`.
+
 ## Autenticacao e autorizacao
 
 O projeto possui cadastro, login e logout:
