@@ -1,6 +1,6 @@
 ﻿# Checkpoint 1 - Desenvolvimento Back-End PHP
 
-Projeto Laravel para catálogo de produtos com estrutura MVC, dominio orientado a objetos, CRUD web, autenticação, autorização, seguranca básica, API REST versionada e documentação OpenAPI/Swagger.
+Projeto Laravel para catálogo de produtos com estrutura MVC, dominio orientado a objetos, front-end React com Inertia, CRUD web, autenticação, autorização, seguranca básica, API REST versionada e documentação OpenAPI/Swagger.
 
 ## Requisitos
 
@@ -19,7 +19,7 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Instale as dependências do front-end React:
+Instale as dependências do front-end React/Inertia:
 
 ```bash
 npm install
@@ -66,7 +66,7 @@ Senha: password
 
 ## Executar
 
-O front-end do projeto usa React com Vite. Em desenvolvimento, mantenha dois terminais abertos dentro da pasta `Checkpoint 1`.
+O front-end do projeto usa React com Inertia e Vite. Em desenvolvimento, mantenha dois terminais abertos dentro da pasta `Checkpoint 1`.
 
 Terminal 1, servidor Laravel:
 
@@ -80,7 +80,7 @@ Terminal 2, servidor Vite/React:
 npm run dev
 ```
 
-Sem o `npm run dev`, as telas React podem não carregar corretamente em ambiente local. Para gerar os assets de produção, execute:
+Sem o `npm run dev`, o Laravel usa os assets gerados por `npm run build`. Para gerar ou atualizar os assets de produção, execute:
 
 ```bash
 npm run build
@@ -112,7 +112,7 @@ PUT    /products/{product}       Atualiza produto
 DELETE /products/{product}       Remove produto
 ```
 
-As telas web são renderizadas em React e recebem dados seguros do Laravel via Blade. As ações de formulário continuam usando validação no backend, mensagens por sessão, repopulação de campos em caso de erro, proteção CSRF e escaping padrão.
+As telas web são renderizadas em React com Inertia. Os controllers Laravel retornam componentes Inertia com props serializadas de forma segura, enquanto as ações de formulário continuam usando validação no backend, mensagens por sessão, repopulação de campos em caso de erro, proteção CSRF e escaping padrão.
 
 ## Autenticacao e autorizacao
 
@@ -256,14 +256,21 @@ app/Http/Controllers/Api/V1/ProductController.php
 app/Http/Controllers/SessionController.php
 app/Http/Controllers/RegisterController.php
 app/Http/Requests/ProductRequest.php
+app/Http/Middleware/HandleInertiaRequests.php
 app/Events/ProductCreated.php
 app/Listeners/GenerateProductThumbnail.php
 app/Policies/ProductPolicy.php
 app/Support/Http/ApiResponse.php
 app/Support/Strings/SlugTrait.php
 resources/js/app.jsx
+resources/js/Pages/Auth/Login.jsx
+resources/js/Pages/Auth/Register.jsx
+resources/js/Pages/Products/Index.jsx
+resources/js/Pages/Products/Show.jsx
+resources/js/Pages/Products/Form.jsx
+resources/js/Layouts/Shell.jsx
 resources/css/app.css
-resources/views/layouts/react.blade.php
+resources/views/app.blade.php
 docs/openapi.yaml
 routes/web.php
 routes/api.php
@@ -372,7 +379,7 @@ php artisan test
 Resultado esperado:
 
 ```text
-58 passed
+60 passed
 ```
 
 Para parar o banco de teste:

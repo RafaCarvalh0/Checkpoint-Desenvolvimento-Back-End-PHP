@@ -10,6 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class ProductCatalogTest extends TestCase
@@ -39,7 +40,9 @@ class ProductCatalogTest extends TestCase
         $response = $this->get('/products');
 
         $response->assertOk();
-        $response->assertSee('Produto Teste');
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Products/Index')
+            ->where('products.0.name', 'Produto Teste'));
     }
 
     public function test_product_catalog_lists_legacy_products_without_sku(): void
@@ -54,8 +57,10 @@ class ProductCatalogTest extends TestCase
         $response = $this->get('/products');
 
         $response->assertOk();
-        $response->assertSee('Produto Legado');
-        $response->assertSee("PROD-{$product->id}");
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Products/Index')
+            ->where('products.0.name', 'Produto Legado')
+            ->where('products.0.sku', "PROD-{$product->id}"));
     }
 
     public function test_product_can_be_created_from_html_form(): void
@@ -388,7 +393,8 @@ class ProductCatalogTest extends TestCase
         $response = $this->get('/register');
 
         $response->assertOk();
-        $response->assertSee('Cadastrar usuario');
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Auth/Register'));
     }
 
     public function test_user_can_register(): void
@@ -498,6 +504,8 @@ class ProductCatalogTest extends TestCase
         $response = $this->get('/products/999');
 
         $response->assertNotFound();
-        $response->assertSee('Produto não encontrado');
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Errors/ProductNotFound')
+            ->where('message', 'Produto não encontrado.'));
     }
 }

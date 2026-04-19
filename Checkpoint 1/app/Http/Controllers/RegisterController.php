@@ -7,13 +7,19 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class RegisterController extends Controller
 {
-    public function create(): View
+    public function create(): Response
     {
-        return view('auth.register');
+        return Inertia::render('Auth/Register', [
+            'old' => [
+                'name' => old('name'),
+                'email' => old('email'),
+            ],
+        ]);
     }
 
     public function store(Request $request): RedirectResponse

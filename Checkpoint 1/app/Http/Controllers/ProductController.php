@@ -16,8 +16,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ProductController extends Controller
 {
@@ -26,7 +26,7 @@ class ProductController extends Controller
     ) {
     }
 
-    public function index(Request $request): View|JsonResponse
+    public function index(Request $request): Response|JsonResponse
     {
         $products = $this->products->findByFilters($request->query());
 
@@ -36,16 +36,30 @@ class ProductController extends Controller
             ]);
         }
 
-        return view('products.index', [
-            'products' => $products,
-            'filters' => $request->query(),
+        return Inertia::render('Products/Index', [
+            'products' => array_map(fn (DomainProduct $product): array => $this->toArray($product), $products),
+            'filters' => [
+                'name' => $request->query('name', ''),
+                'sku' => $request->query('sku', ''),
+                'status' => $request->query('status', ''),
+            ],
         ]);
     }
 
-    public function create(): View
+    public function create(): Response
     {
-        return view('products.create', [
-            'statuses' => ProductStatus::cases(),
+        return Inertia::render('Products/Form', [
+            'mode' => 'create',
+            'product' => [
+                'name' => old('name', ''),
+                'description' => old('description', ''),
+                'price' => old('price', ''),
+                'sku' => old('sku', ''),
+                'stock' => old('stock', 0),
+                'status' => old('status', 'active'),
+            ],
+            'statuses' => $this->statuses(),
+            'images' => [],
         ]);
     }
 
@@ -70,7 +84,7 @@ class ProductController extends Controller
             ->with('success', 'Produto criado com sucesso.');
     }
 
-    public function show(Request $request, int $product): View|JsonResponse
+    public function show(Request $request, int $product): Response|JsonResponse
     {
         $productModel = $this->products->findById($product);
 
@@ -84,13 +98,13 @@ class ProductController extends Controller
             ]);
         }
 
-        return view('products.show', [
-            'product' => $productModel,
-            'images' => $this->imagesForProduct($product),
+        return Inertia::render('Products/Show', [
+            'product' => $this->toArray($productModel),
+            'images' => $this->imagePayload($product),
         ]);
     }
 
-    public function edit(int $product): View
+    public function edit(int $product): Response
     {
         $productModel = $this->products->findById($product);
 
@@ -98,10 +112,19 @@ class ProductController extends Controller
             throw new ProductNotFoundException($product);
         }
 
-        return view('products.edit', [
-            'product' => $productModel,
-            'images' => $this->imagesForProduct($product),
-            'statuses' => ProductStatus::cases(),
+        return Inertia::render('Products/Form', [
+            'mode' => 'edit',
+            'product' => [
+                'id' => $productModel->getId(),
+                'name' => old('name', $productModel->getName()),
+                'description' => old('description', $productModel->getDescription()),
+                'price' => old('price', $productModel->getPrice()),
+                'sku' => old('sku', $productModel->getSku()),
+                'stock' => old('stock', $productModel->getStock()),
+                'status' => old('status', $productModel->getStatus()->value),
+            ],
+            'images' => $this->imagePayload($product),
+            'statuses' => $this->statuses(),
         ]);
     }
 
@@ -183,6 +206,26 @@ class ProductController extends Controller
             ->where('product_id', $productId)
             ->orderBy('position')
             ->get();
+    }
+
+    private function imagePayload(int $productId): array
+    {
+        return $this->imagesForProduct($productId)
+            ->map(static fn (ProductImage $image): array => [
+                'id' => $image->id,
+                'url' => $image->url,
+                'thumbnail_url' => $image->thumbnail_url,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function statuses(): array
+    {
+        return array_map(static fn (ProductStatus $status): array => [
+            'value' => $status->value,
+            'label' => $status->value === 'active' ? 'Ativo' : 'Inativo',
+        ], ProductStatus::cases());
     }
 
     /**
