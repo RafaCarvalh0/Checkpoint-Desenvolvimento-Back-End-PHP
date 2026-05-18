@@ -15,7 +15,7 @@
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "tailwindcss": "^4.3.0",
-        "vite": "^8.0.10"
+        "vite": "^8.0.13"
     },
     "dependencies": {
         "@inertiajs/react": "^3.0.3"
