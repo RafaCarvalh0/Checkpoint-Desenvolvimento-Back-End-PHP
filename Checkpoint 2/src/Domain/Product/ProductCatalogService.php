@@ -5,11 +5,17 @@ declare(strict_types=1);
 namespace App\Domain\Product;
 
 use App\Entity\Product;
+use App\Event\ProductCreatedEvent;
+use App\Event\ProductDeletedEvent;
+use App\Event\ProductUpdatedEvent;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class ProductCatalogService
 {
-    public function __construct(private readonly ProductRepositoryInterface $products)
-    {
+    public function __construct(
+        private readonly ProductRepositoryInterface $products,
+        private readonly EventDispatcherInterface $events,
+    ) {
     }
 
     public function create(array $data): Product
@@ -31,6 +37,8 @@ final class ProductCatalogService
             $product->replaceImages(is_array($data['images']) ? $data['images'] : []);
         }
         $this->products->save($product, true);
+        $imageIds = array_values(array_filter(array_map(static fn ($image): ?int => $image->getId(), $product->getImages()->toArray())));
+        $this->events->dispatch(new ProductCreatedEvent((int) $product->getId(), $imageIds));
         return $product;
     }
 
@@ -55,12 +63,18 @@ final class ProductCatalogService
             $product->replaceImages(is_array($data['images']) ? $data['images'] : []);
         }
         $this->products->save($product, true);
+        if (array_key_exists('images', $data)) {
+            $imageIds = array_values(array_filter(array_map(static fn ($image): ?int => $image->getId(), $product->getImages()->toArray())));
+            $this->events->dispatch(new ProductUpdatedEvent((int) $product->getId(), $imageIds));
+        }
         return $product;
     }
 
     public function delete(Product $product): void
     {
+        $id = (int) $product->getId();
         $this->products->remove($product, true);
+        $this->events->dispatch(new ProductDeletedEvent($id));
     }
 
     private function string(array $data, string $key): string

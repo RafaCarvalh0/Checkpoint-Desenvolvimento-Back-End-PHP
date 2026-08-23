@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\MessageHandler;
+
+use App\Message\CleanupOrphanImages;
+use App\Service\ProductImageStorage;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+
+#[AsMessageHandler]
+final class CleanupOrphanImagesHandler
+{
+    public function __construct(private readonly ProductImageStorage $storage)
+    {
+    }
+
+    public function __invoke(CleanupOrphanImages $message): void
+    {
+        $this->storage->cleanupOrphans();
+    }
+}

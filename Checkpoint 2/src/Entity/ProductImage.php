@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\ProductImageRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: ProductImageRepository::class)]
 #[ORM\Table(name: 'product_images')]
 #[ORM\Index(columns: ['product_id', 'position'], name: 'idx_product_images_position')]
 class ProductImage
@@ -47,4 +48,11 @@ class ProductImage
     public function getUrl(): string { return $this->url; }
     public function getThumbnailUrl(): ?string { return $this->thumbnailUrl; }
     public function getPosition(): int { return $this->position; }
+    public function getProduct(): Product { return $this->product; }
+
+    public function setThumbnailUrl(?string $thumbnailUrl): self
+    {
+        $this->thumbnailUrl = $thumbnailUrl;
+        return $this;
+    }
 }

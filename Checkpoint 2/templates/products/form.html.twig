@@ -2,8 +2,10 @@
 {% block title %}{{ mode == 'create' ? 'Novo produto' : 'Editar produto' }}{% endblock %}
 {% block body %}
 <h1>{{ mode == 'create' ? 'Novo produto' : 'Editar produto' }}</h1>
-{% if error %}<div class="alert">{{ error }}</div>{% endif %}
-<form class="card" method="post"><input type="hidden" name="_token" value="{{ csrf_token('product_form') }}">
-<div class="grid"><label>Nome<input required maxlength="120" name="name" value="{{ data.name|default('') }}"></label><label>SKU<input required maxlength="60" pattern="[A-Za-z0-9_-]+" name="sku" value="{{ data.sku|default('') }}"></label><label>Categoria<input required maxlength="100" name="category" value="{{ data.category|default('Sem categoria') }}"></label><label>Preço<input required type="number" step="0.01" min="0" name="price" value="{{ data.price|default('') }}"></label><label>Estoque<input required type="number" min="0" name="stock" value="{{ data.stock|default(0) }}"></label><label>Status<select name="status"><option value="active" {{ data.status|default('active') == 'active' ? 'selected' }}>Ativo</option><option value="inactive" {{ data.status|default('active') == 'inactive' ? 'selected' }}>Inativo</option></select></label></div>
-<label>Descrição<textarea rows="4" name="description">{{ data.description|default('') }}</textarea></label><label>URLs das imagens (uma por linha)<textarea rows="4" name="images_text">{{ data.images_text|default('') }}</textarea></label><p><button>Salvar</button> <a href="{{ path('products_index') }}">Cancelar</a></p></form>
+{{ form_start(form, {attr:{class:'card'}}) }}
+{{ form_errors(form) }}
+<div class="grid">{{ form_row(form.name) }}{{ form_row(form.sku) }}{{ form_row(form.category) }}{{ form_row(form.price) }}{{ form_row(form.stock) }}{{ form_row(form.status) }}</div>
+{{ form_row(form.description) }}{{ form_row(form.image) }}
+<p><button>Salvar</button> <a href="{{ path('products_index') }}">Cancelar</a></p>
+{{ form_end(form) }}
 {% endblock %}

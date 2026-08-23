@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Repository;
+
+use App\Entity\ProductImage;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Persistence\ManagerRegistry;
+
+/** @extends ServiceEntityRepository<ProductImage> */
+final class ProductImageRepository extends ServiceEntityRepository
+{
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, ProductImage::class);
+    }
+
+    /** @return array<string, true> */
+    public function usedUrls(): array
+    {
+        $used = [];
+        foreach ($this->findAll() as $image) {
+            $used[$image->getUrl()] = true;
+            if ($image->getThumbnailUrl() !== null) {
+                $used[$image->getThumbnailUrl()] = true;
+            }
+        }
+        return $used;
+    }
+}

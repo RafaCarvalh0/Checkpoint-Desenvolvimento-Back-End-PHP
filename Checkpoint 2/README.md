@@ -21,8 +21,19 @@ A configuração padrão usa SQLite. Para MySQL/MariaDB, sobrescreva `DATABASE_U
 - Domínio rico para preço, SKU, estoque e ativação; imagens persistidas em relacionamento Doctrine com `JOIN FETCH` no detalhe.
 - Redis com TTL de 300 segundos nas listagens, detalhes e relatórios; mutações invalidam o pool automaticamente.
 - Relatórios em `GET /reports`, `/api/v1/reports/products-by-category` e `/api/v1/reports/low-stock`.
+- Formulários Symfony tipados, validação customizada de SKU e feedback por sessão.
+- Upload de JPEG, PNG ou WEBP (até 2 MB), e-mail pós-cadastro e miniaturas processadas pelo Messenger.
 
 Configuração, medições e estratégia de performance: [`docs/performance.md`](docs/performance.md).
+Formulários, mídia, e-mail e fila: [`docs/forms-media-queue.md`](docs/forms-media-queue.md).
+
+## Fila assíncrona
+
+Configure `MAILER_DSN`, `ADMIN_EMAIL` e `MESSENGER_TRANSPORT_DSN` em `.env.local` e mantenha o worker ativo:
+
+```bash
+/Applications/XAMPP/xamppfiles/bin/php bin/console messenger:consume async
+```
 
 ## Testes
 

@@ -208,7 +208,7 @@ class Product
     {
         $this->images->clear();
         foreach (array_values($urls) as $position => $url) {
-            if (!is_string($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+            if (!is_string($url) || (!filter_var($url, FILTER_VALIDATE_URL) && !str_starts_with($url, '/uploads/products/'))) {
                 throw new \InvalidArgumentException('A URL da imagem é inválida.');
             }
             $this->images->add(new ProductImage($this, $url, $position));

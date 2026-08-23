@@ -6,8 +6,11 @@ namespace App\Controller\Web;
 
 use App\Domain\Product\ProductCatalogService;
 use App\Domain\Product\ProductRepositoryInterface;
-use App\Entity\Product;
+use App\Form\Model\ProductFormData;
+use App\Form\ProductType;
+use App\Service\ProductImageStorage;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,22 +43,22 @@ final class ProductController extends AbstractController
     }
 
     #[Route('/products/create', name: 'products_create', methods: ['GET', 'POST'])]
-    public function create(Request $request, ProductCatalogService $catalog): Response
+    public function create(Request $request, ProductCatalogService $catalog, ProductImageStorage $storage): Response
     {
-        $data = $this->formData($request);
-        if ($request->isMethod('POST')) {
-            if (!$this->isCsrfTokenValid('product_form', (string) $request->request->get('_token'))) {
-                return $this->formResponse('create', $data, null, 'Token CSRF inválido.', Response::HTTP_FORBIDDEN);
-            }
+        $data = new ProductFormData();
+        $form = $this->createForm(ProductType::class, $data);
+        $form->handleRequest($request);
+        if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $product = $catalog->create($data);
+                $imageUrl = $data->image === null ? null : $storage->upload($data->image);
+                $product = $catalog->create($data->toArray($imageUrl));
                 $this->addFlash('success', 'Produto criado com sucesso.');
                 return $this->redirectToRoute('products_show', ['id' => $product->getId()]);
             } catch (\InvalidArgumentException $exception) {
-                return $this->formResponse('create', $data, null, $exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+                $form->addError(new FormError($exception->getMessage()));
             }
         }
-        return $this->formResponse('create', $data);
+        return $this->render('products/form.html.twig', ['mode' => 'create', 'form' => $form]);
     }
 
     #[Route('/products/{id<\d+>}', name: 'products_show', methods: ['GET'])]
@@ -69,26 +72,26 @@ final class ProductController extends AbstractController
     }
 
     #[Route('/products/{id<\d+>}/edit', name: 'products_edit', methods: ['GET', 'POST'])]
-    public function edit(int $id, Request $request, ProductRepositoryInterface $products, ProductCatalogService $catalog): Response
+    public function edit(int $id, Request $request, ProductRepositoryInterface $products, ProductCatalogService $catalog, ProductImageStorage $storage): Response
     {
         $product = $products->findOneWithImages($id);
         if ($product === null) {
             throw $this->createNotFoundException('Produto não encontrado.');
         }
-        $data = $request->isMethod('POST') ? $this->formData($request) : $this->productData($product);
-        if ($request->isMethod('POST')) {
-            if (!$this->isCsrfTokenValid('product_form', (string) $request->request->get('_token'))) {
-                return $this->formResponse('edit', $data, $product, 'Token CSRF inválido.', Response::HTTP_FORBIDDEN);
-            }
+        $data = ProductFormData::fromProduct($product);
+        $form = $this->createForm(ProductType::class, $data);
+        $form->handleRequest($request);
+        if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $catalog->update($product, $data);
+                $imageUrl = $data->image === null ? null : $storage->upload($data->image);
+                $catalog->update($product, $data->toArray($imageUrl));
                 $this->addFlash('success', 'Produto atualizado com sucesso.');
                 return $this->redirectToRoute('products_show', ['id' => $product->getId()]);
             } catch (\InvalidArgumentException $exception) {
-                return $this->formResponse('edit', $data, $product, $exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+                $form->addError(new FormError($exception->getMessage()));
             }
         }
-        return $this->formResponse('edit', $data, $product);
+        return $this->render('products/form.html.twig', ['mode' => 'edit', 'form' => $form, 'product' => $product]);
     }
 
     #[Route('/products/{id<\d+>}/delete', name: 'products_delete', methods: ['POST'])]
@@ -106,28 +109,4 @@ final class ProductController extends AbstractController
         return $this->redirectToRoute('products_index');
     }
 
-    private function formData(Request $request): array
-    {
-        if (!$request->isMethod('POST')) {
-            return ['name' => '', 'description' => '', 'price' => '', 'sku' => '', 'stock' => 0, 'status' => 'active', 'category' => 'Sem categoria', 'images_text' => ''];
-        }
-        $data = $request->request->all();
-        $data['images'] = array_values(array_filter(array_map('trim', preg_split('/\R/', (string) ($data['images_text'] ?? '')) ?: [])));
-        return $data;
-    }
-
-    private function productData(Product $product): array
-    {
-        return [
-            'name' => $product->getName(), 'description' => $product->getDescription(), 'price' => $product->getPrice(),
-            'sku' => $product->getSku(), 'stock' => $product->getStock(), 'status' => $product->getStatus()->value,
-            'category' => $product->getCategory(),
-            'images_text' => implode("\n", array_map(static fn ($image): string => $image->getUrl(), $product->getImages()->toArray())),
-        ];
-    }
-
-    private function formResponse(string $mode, array $data, ?Product $product = null, ?string $error = null, int $status = 200): Response
-    {
-        return $this->render('products/form.html.twig', compact('mode', 'data', 'product', 'error'), new Response(status: $status));
-    }
 }
