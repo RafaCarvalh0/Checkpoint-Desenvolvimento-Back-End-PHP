@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Form\Model;
 
+use App\Domain\Product\ProductInput;
+use App\Domain\Product\ProductStatus;
 use App\Entity\Product;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
@@ -33,15 +35,17 @@ final class ProductFormData
         return $data;
     }
 
-    public function toArray(?string $uploadedImageUrl = null): array
+    public function toProductInput(?string $uploadedImageUrl = null): ProductInput
     {
-        $data = [
-            'name' => $this->name, 'description' => $this->description, 'price' => $this->price,
-            'sku' => $this->sku, 'stock' => $this->stock, 'status' => $this->status, 'category' => $this->category,
-        ];
-        if ($uploadedImageUrl !== null) {
-            $data['images'] = [$uploadedImageUrl];
-        }
-        return $data;
+        return new ProductInput(
+            $this->name,
+            $this->description,
+            $this->price,
+            $this->sku,
+            $this->stock,
+            ProductStatus::from($this->status),
+            $this->category,
+            $uploadedImageUrl === null ? null : [$uploadedImageUrl],
+        );
     }
 }

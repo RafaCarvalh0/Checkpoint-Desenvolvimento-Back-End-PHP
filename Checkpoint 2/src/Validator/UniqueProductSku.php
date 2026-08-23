@@ -9,5 +9,5 @@ use Symfony\Component\Validator\Constraint;
 #[\Attribute(\Attribute::TARGET_PROPERTY)]
 final class UniqueProductSku extends Constraint
 {
-    public string $message = 'Já existe um produto com este SKU.';
+    public string $message = 'product.sku.unique';
 }

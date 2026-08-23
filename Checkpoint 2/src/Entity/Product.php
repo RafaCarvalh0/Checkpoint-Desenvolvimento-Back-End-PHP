@@ -23,7 +23,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(columns: ['status', 'stock'], name: 'idx_products_status_stock')]
 #[ORM\Index(columns: ['status', 'category'], name: 'idx_products_status_category')]
 #[ORM\UniqueConstraint(columns: ['sku'], name: 'uniq_products_sku')]
-#[UniqueEntity(fields: ['sku'], message: 'Já existe um produto com este SKU.')]
+#[UniqueEntity(fields: ['sku'], message: 'product.sku.unique')]
 class Product
 {
     #[ORM\Id]
@@ -32,8 +32,8 @@ class Product
     private ?int $id = null;
 
     #[ORM\Column(length: 120)]
-    #[Assert\NotBlank(message: 'Informe o nome do produto.')]
-    #[Assert\Length(max: 120, maxMessage: 'O nome deve ter no máximo 120 caracteres.')]
+    #[Assert\NotBlank(message: 'product.name.required')]
+    #[Assert\Length(max: 120, maxMessage: 'product.name.max_length')]
     private string $name;
 
     #[ORM\Column(length: 140)]
@@ -43,22 +43,22 @@ class Product
     private ?string $description;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2)]
-    #[Assert\PositiveOrZero(message: 'O preço não pode ser negativo.')]
+    #[Assert\PositiveOrZero(message: 'product.price.positive')]
     private string $price;
 
     #[ORM\Column(length: 60)]
-    #[Assert\NotBlank(message: 'Informe o SKU do produto.')]
-    #[Assert\Length(max: 60, maxMessage: 'O SKU deve ter no máximo 60 caracteres.')]
-    #[Assert\Regex(pattern: '/^[A-Z0-9_-]+$/', message: 'O SKU deve conter apenas letras, números, hífen ou sublinhado.')]
+    #[Assert\NotBlank(message: 'product.sku.required')]
+    #[Assert\Length(max: 60, maxMessage: 'product.sku.max_length')]
+    #[Assert\Regex(pattern: '/^[A-Z0-9_-]+$/', message: 'product.sku.invalid')]
     private string $sku;
 
     #[ORM\Column(options: ['default' => 0, 'unsigned' => true])]
-    #[Assert\PositiveOrZero(message: 'O estoque não pode ser negativo.')]
+    #[Assert\PositiveOrZero(message: 'product.stock.positive')]
     private int $stock;
 
     #[ORM\Column(length: 100, options: ['default' => 'Sem categoria'])]
-    #[Assert\NotBlank(message: 'Informe a categoria do produto.')]
-    #[Assert\Length(max: 100)]
+    #[Assert\NotBlank(message: 'product.category.required')]
+    #[Assert\Length(max: 100, maxMessage: 'product.category.max_length')]
     private string $category;
 
     #[ORM\Column(length: 20, enumType: ProductStatus::class, options: ['default' => 'active'])]

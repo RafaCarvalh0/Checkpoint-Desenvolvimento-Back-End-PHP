@@ -79,6 +79,13 @@ final class ProductControllerTest extends WebTestCase
         self::assertSame('O parâmetro limit deve ser numérico.', $this->data()['errors'][0]['message']);
     }
 
+    public function testApiMessagesCanBeLocalized(): void
+    {
+        $this->client->request('GET', '/api/v1/products/999999', server: ['HTTP_ACCEPT_LANGUAGE' => 'en']);
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        self::assertSame('Product not found.', $this->data()['errors'][0]['message']);
+    }
+
     public function testTwigCatalogWorksWithoutInertiaOrReact(): void
     {
         $crawler = $this->client->request('GET', '/products/create');

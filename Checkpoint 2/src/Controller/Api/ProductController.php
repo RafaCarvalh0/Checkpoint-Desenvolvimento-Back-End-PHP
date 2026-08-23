@@ -5,33 +5,35 @@ declare(strict_types=1);
 namespace App\Controller\Api;
 
 use App\Domain\Product\ProductCatalogService;
+use App\Domain\Product\ProductInput;
 use App\Domain\Product\ProductRepositoryInterface;
-use App\Entity\Product;
-use App\Entity\ProductImage;
+use App\Http\Api\ProductApiPresenter;
+use App\Http\Api\ProductListQuery;
 use App\Service\ProductCache;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/api/v1/products', name: 'api_v1_products_')]
 final class ProductController extends AbstractController
 {
-    private const SORTS = ['name' => 'name', 'price' => 'price', 'stock' => 'stock', 'created_at' => 'createdAt'];
+    public function __construct(
+        private readonly ProductApiPresenter $api,
+        private readonly TranslatorInterface $translator,
+    ) {
+    }
 
     #[Route('', name: 'index', methods: ['GET'])]
     public function index(Request $request, ProductRepositoryInterface $products, ProductCache $cache): JsonResponse
     {
         try {
-            $result = $cache->remember(
-                'products.list',
-                $request->query->all(),
-                fn (): array => $this->listPayload($request, $products),
-            );
-            return $this->json($result['value'], headers: ['X-Cache' => $result['hit'] ? 'HIT' : 'MISS']);
+            $result = $cache->remember('products.list', $request->query->all(), fn (): array => $this->listPayload(ProductListQuery::fromRequest($request), $products));
+            return new JsonResponse($result['value'], headers: ['X-Cache' => $result['hit'] ? 'HIT' : 'MISS']);
         } catch (\InvalidArgumentException $exception) {
-            return $this->error($exception->getMessage(), Response::HTTP_BAD_REQUEST);
+            return $this->api->error($exception->getMessage(), Response::HTTP_BAD_REQUEST);
         }
     }
 
@@ -39,14 +41,12 @@ final class ProductController extends AbstractController
     public function show(string $product, ProductRepositoryInterface $products, ProductCache $cache): JsonResponse
     {
         $result = $cache->remember('products.detail', ['product' => $product], function () use ($product, $products): ?array {
-            $item = ctype_digit($product)
-                ? $products->findOneWithImages((int) $product)
-                : $products->findOneBySlug($product);
-            return $item === null ? null : $this->serialize($item, true);
+            $item = ctype_digit($product) ? $products->findOneWithImages((int) $product) : $products->findOneBySlug($product);
+            return $item === null ? null : $this->api->normalize($item, true);
         });
         return $result['value'] === null
-            ? $this->error('Produto não encontrado.', Response::HTTP_NOT_FOUND)
-            : $this->success($result['value'], headers: ['X-Cache' => $result['hit'] ? 'HIT' : 'MISS']);
+            ? $this->api->error($this->translator->trans('product.not_found'), Response::HTTP_NOT_FOUND)
+            : $this->api->success($result['value'], headers: ['X-Cache' => $result['hit'] ? 'HIT' : 'MISS']);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
@@ -57,10 +57,10 @@ final class ProductController extends AbstractController
             return $payload;
         }
         try {
-            $product = $catalog->create($payload);
-            return $this->success($this->serialize($product, true), [], Response::HTTP_CREATED);
+            $product = $catalog->create(ProductInput::fromArray($payload));
+            return $this->api->success($this->api->normalize($product, true), status: Response::HTTP_CREATED);
         } catch (\InvalidArgumentException $exception) {
-            return $this->error($exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->api->error($exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
     }
 
@@ -69,19 +69,19 @@ final class ProductController extends AbstractController
     {
         $product = $products->findOneWithImages($id);
         if ($product === null) {
-            return $this->error('Produto não encontrado.', Response::HTTP_NOT_FOUND);
+            return $this->api->error($this->translator->trans('product.not_found'), Response::HTTP_NOT_FOUND);
         }
         $payload = $this->payload($request);
         if ($payload instanceof JsonResponse) {
             return $payload;
         }
         if ($request->isMethod('PATCH')) {
-            $payload += $this->serialize($product);
+            $payload += $this->api->normalize($product);
         }
         try {
-            return $this->success($this->serialize($catalog->update($product, $payload), true));
+            return $this->api->success($this->api->normalize($catalog->update($product, ProductInput::fromArray($payload)), true));
         } catch (\InvalidArgumentException $exception) {
-            return $this->error($exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->api->error($exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
     }
 
@@ -90,48 +90,10 @@ final class ProductController extends AbstractController
     {
         $product = $products->findOneWithImages($id);
         if ($product === null) {
-            return $this->error('Produto não encontrado.', Response::HTTP_NOT_FOUND);
+            return $this->api->error($this->translator->trans('product.not_found'), Response::HTTP_NOT_FOUND);
         }
         $catalog->delete($product);
-        return $this->success(null, ['message' => 'Produto removido com sucesso.']);
-    }
-
-    private function filters(Request $request): array
-    {
-        $filters = [];
-        foreach (['name', 'sku', 'category'] as $key) {
-            if (($value = trim($request->query->getString($key))) !== '') {
-                $filters[$key] = $key === 'sku' ? strtoupper($value) : $value;
-            }
-        }
-        $status = $request->query->getString('status');
-        if (in_array($status, ['active', 'inactive'], true)) {
-            $filters['status'] = $status;
-        }
-        foreach (['min_price', 'max_price'] as $key) {
-            $value = $request->query->get($key);
-            if ($value !== null && $value !== '') {
-                if (!is_numeric($value)) {
-                    throw new \InvalidArgumentException("O parâmetro {$key} deve ser numérico.");
-                }
-                $filters[$key] = max(0, (float) $value);
-            }
-        }
-        if (filter_var($request->query->get('in_stock'), FILTER_VALIDATE_BOOL)) {
-            $filters['in_stock'] = true;
-        }
-        return $filters;
-    }
-
-    private function boundedInteger(mixed $value, int $default, int $min, int $max, string $name): int
-    {
-        if ($value === null || $value === '') {
-            return $default;
-        }
-        if (filter_var($value, FILTER_VALIDATE_INT) === false) {
-            throw new \InvalidArgumentException("O parâmetro {$name} deve ser numérico.");
-        }
-        return max($min, min($max, (int) $value));
+        return $this->api->success(null, ['message' => $this->translator->trans('product.deleted')]);
     }
 
     private function payload(Request $request): array|JsonResponse
@@ -139,57 +101,23 @@ final class ProductController extends AbstractController
         try {
             $data = json_decode($request->getContent(), true, flags: JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
-            return $this->error('JSON inválido.', Response::HTTP_BAD_REQUEST);
+            return $this->api->error($this->translator->trans('api.invalid_json'), Response::HTTP_BAD_REQUEST);
         }
-        return is_array($data) ? $data : $this->error('O corpo deve ser um objeto JSON.', Response::HTTP_BAD_REQUEST);
+        return is_array($data) ? $data : $this->api->error($this->translator->trans('api.object_required'), Response::HTTP_BAD_REQUEST);
     }
 
-    private function serialize(Product $product, bool $withImages = false): array
+    private function listPayload(ProductListQuery $query, ProductRepositoryInterface $products): array
     {
-        $data = [
-            'id' => $product->getId(), 'name' => $product->getName(), 'description' => $product->getDescription(),
-            'price' => $product->getPrice(), 'sku' => $product->getSku(), 'stock' => $product->getStock(),
-            'status' => $product->getStatus()->value, 'category' => $product->getCategory(), 'slug' => $product->getSlug(),
-        ];
-        if ($withImages) {
-            $data['images'] = array_map(static fn (ProductImage $image): array => [
-                'id' => $image->getId(), 'url' => $image->getUrl(), 'thumbnail_url' => $image->getThumbnailUrl(),
-            ], $product->getImages()->toArray());
-        }
-        return $data;
-    }
-
-    private function success(mixed $data, array $meta = [], int $status = Response::HTTP_OK, array $headers = []): JsonResponse
-    {
-        return $this->json(['data' => $data, 'meta' => $meta, 'errors' => []], $status, $headers);
-    }
-
-    private function listPayload(Request $request, ProductRepositoryInterface $products): array
-    {
-        $filters = $this->filters($request);
-        $sortInput = $request->query->getString('sort', 'name');
-        $sort = self::SORTS[$sortInput] ?? 'name';
-        $direction = strtolower($request->query->getString('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
-        $total = $products->countFiltered($filters);
-        if ($request->query->has('offset') || $request->query->has('limit')) {
-            $limit = $this->boundedInteger($request->query->get('limit'), 10, 1, 50, 'limit');
-            $offset = $this->boundedInteger($request->query->get('offset'), 0, 0, PHP_INT_MAX, 'offset');
-            return ['data' => array_map($this->serialize(...), $products->findFiltered($filters, $sort, $direction, $limit, $offset)), 'meta' => [
-                'limit' => $limit, 'offset' => $offset, 'total' => $total, 'sort' => $sortInput,
-                'direction' => $direction, 'order_tiebreaker' => 'id', 'filters' => $filters,
-            ], 'errors' => []];
-        }
-        $perPage = $this->boundedInteger($request->query->get('per_page'), 10, 1, 50, 'per_page');
-        $page = $this->boundedInteger($request->query->get('page'), 1, 1, PHP_INT_MAX, 'page');
-        return ['data' => array_map($this->serialize(...), $products->findFiltered($filters, $sort, $direction, $perPage, ($page - 1) * $perPage)), 'meta' => [
-            'current_page' => $page, 'per_page' => $perPage, 'total' => $total,
-            'last_page' => max(1, (int) ceil($total / $perPage)), 'sort' => $sortInput,
-            'direction' => $direction, 'order_tiebreaker' => 'id', 'filters' => $filters,
+        $total = $products->countFiltered($query->filters);
+        $items = array_map($this->api->normalize(...), $products->findFiltered(
+            $query->filters, $query->sort, $query->direction, $query->effectiveLimit(), $query->effectiveOffset(),
+        ));
+        $meta = $query->limit !== null
+            ? ['limit' => $query->limit, 'offset' => $query->offset]
+            : ['current_page' => $query->page, 'per_page' => $query->perPage, 'last_page' => max(1, (int) ceil($total / $query->perPage))];
+        return ['data' => $items, 'meta' => $meta + [
+            'total' => $total, 'sort' => $query->sortInput, 'direction' => $query->direction,
+            'order_tiebreaker' => 'id', 'filters' => $query->filters,
         ], 'errors' => []];
-    }
-
-    private function error(string $message, int $status): JsonResponse
-    {
-        return $this->json(['data' => null, 'meta' => ['status' => $status], 'errors' => [['message' => $message]]], $status);
     }
 }

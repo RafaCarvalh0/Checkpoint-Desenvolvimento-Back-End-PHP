@@ -1,0 +1,10 @@
+product:
+  created: 'Produto criado com sucesso.'
+  updated: 'Produto atualizado com sucesso.'
+  deleted: 'Produto removido com sucesso.'
+  not_found: 'Produto não encontrado.'
+api:
+  invalid_json: 'JSON inválido.'
+  object_required: 'O corpo deve ser um objeto JSON.'
+csrf:
+  invalid: 'Token CSRF inválido.'

@@ -15,9 +15,14 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ProductController extends AbstractController
 {
+    public function __construct(private readonly TranslatorInterface $translator)
+    {
+    }
+
     #[Route('/', name: 'home', methods: ['GET'])]
     public function home(): RedirectResponse
     {
@@ -51,8 +56,8 @@ final class ProductController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             try {
                 $imageUrl = $data->image === null ? null : $storage->upload($data->image);
-                $product = $catalog->create($data->toArray($imageUrl));
-                $this->addFlash('success', 'Produto criado com sucesso.');
+                $product = $catalog->create($data->toProductInput($imageUrl));
+                $this->addFlash('success', $this->translator->trans('product.created'));
                 return $this->redirectToRoute('products_show', ['id' => $product->getId()]);
             } catch (\InvalidArgumentException $exception) {
                 $form->addError(new FormError($exception->getMessage()));
@@ -66,7 +71,7 @@ final class ProductController extends AbstractController
     {
         $product = $products->findOneWithImages($id);
         if ($product === null) {
-            throw $this->createNotFoundException('Produto não encontrado.');
+            throw $this->createNotFoundException($this->translator->trans('product.not_found'));
         }
         return $this->render('products/show.html.twig', ['product' => $product]);
     }
@@ -76,7 +81,7 @@ final class ProductController extends AbstractController
     {
         $product = $products->findOneWithImages($id);
         if ($product === null) {
-            throw $this->createNotFoundException('Produto não encontrado.');
+            throw $this->createNotFoundException($this->translator->trans('product.not_found'));
         }
         $data = ProductFormData::fromProduct($product);
         $form = $this->createForm(ProductType::class, $data);
@@ -84,8 +89,8 @@ final class ProductController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             try {
                 $imageUrl = $data->image === null ? null : $storage->upload($data->image);
-                $catalog->update($product, $data->toArray($imageUrl));
-                $this->addFlash('success', 'Produto atualizado com sucesso.');
+                $catalog->update($product, $data->toProductInput($imageUrl));
+                $this->addFlash('success', $this->translator->trans('product.updated'));
                 return $this->redirectToRoute('products_show', ['id' => $product->getId()]);
             } catch (\InvalidArgumentException $exception) {
                 $form->addError(new FormError($exception->getMessage()));
@@ -98,14 +103,14 @@ final class ProductController extends AbstractController
     public function delete(int $id, Request $request, ProductRepositoryInterface $products, ProductCatalogService $catalog): RedirectResponse
     {
         if (!$this->isCsrfTokenValid('delete_product_'.$id, (string) $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
+            throw $this->createAccessDeniedException($this->translator->trans('csrf.invalid'));
         }
         $product = $products->findOneWithImages($id);
         if ($product === null) {
-            throw $this->createNotFoundException('Produto não encontrado.');
+            throw $this->createNotFoundException($this->translator->trans('product.not_found'));
         }
         $catalog->delete($product);
-        $this->addFlash('success', 'Produto removido com sucesso.');
+        $this->addFlash('success', $this->translator->trans('product.deleted'));
         return $this->redirectToRoute('products_index');
     }
 

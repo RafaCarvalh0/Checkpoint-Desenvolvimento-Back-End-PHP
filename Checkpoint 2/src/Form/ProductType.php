@@ -23,25 +23,28 @@ final class ProductType extends AbstractType
     {
         $builder
             ->add('name', TextType::class, ['label' => 'Nome', 'constraints' => [
-                new Assert\NotBlank(message: 'Informe o nome do produto.'),
-                new Assert\Length(max: 120, maxMessage: 'O nome deve ter no máximo 120 caracteres.'),
+                new Assert\NotBlank(message: 'product.name.required'),
+                new Assert\Length(max: 120, maxMessage: 'product.name.max_length'),
             ]])
             ->add('sku', TextType::class, ['label' => 'SKU', 'constraints' => [
-                new Assert\NotBlank(message: 'Informe o SKU do produto.'),
-                new Assert\Length(max: 60),
-                new Assert\Regex(pattern: '/^[A-Za-z0-9_-]+$/', message: 'O SKU deve conter apenas letras, números, hífen ou sublinhado.'),
+                new Assert\NotBlank(message: 'product.sku.required'),
+                new Assert\Length(max: 60, maxMessage: 'product.sku.max_length'),
+                new Assert\Regex(pattern: '/^[A-Za-z0-9_-]+$/', message: 'product.sku.invalid'),
                 new UniqueProductSku(),
             ]])
-            ->add('category', TextType::class, ['label' => 'Categoria', 'constraints' => [new Assert\NotBlank(), new Assert\Length(max: 100)]])
-            ->add('price', MoneyType::class, ['label' => 'Preço', 'currency' => 'BRL', 'constraints' => [new Assert\PositiveOrZero(message: 'O preço não pode ser negativo.')]])
-            ->add('stock', IntegerType::class, ['label' => 'Estoque', 'constraints' => [new Assert\PositiveOrZero(message: 'O estoque não pode ser negativo.')]])
+            ->add('category', TextType::class, ['label' => 'Categoria', 'constraints' => [
+                new Assert\NotBlank(message: 'product.category.required'),
+                new Assert\Length(max: 100, maxMessage: 'product.category.max_length'),
+            ]])
+            ->add('price', MoneyType::class, ['label' => 'Preço', 'currency' => 'BRL', 'constraints' => [new Assert\PositiveOrZero(message: 'product.price.positive')]])
+            ->add('stock', IntegerType::class, ['label' => 'Estoque', 'constraints' => [new Assert\PositiveOrZero(message: 'product.stock.positive')]])
             ->add('status', ChoiceType::class, ['label' => 'Status', 'choices' => ['Ativo' => 'active', 'Inativo' => 'inactive']])
             ->add('description', TextareaType::class, ['label' => 'Descrição', 'required' => false])
             ->add('image', FileType::class, ['label' => 'Imagem', 'required' => false, 'constraints' => [new Assert\File(
                 maxSize: '2M',
                 mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-                maxSizeMessage: 'A imagem deve ter no máximo 2 MB.',
-                mimeTypesMessage: 'Envie uma imagem JPG, PNG ou WEBP.',
+                maxSizeMessage: 'product.image.max_size',
+                mimeTypesMessage: 'product.image.mime_type',
             )]]);
     }
 
