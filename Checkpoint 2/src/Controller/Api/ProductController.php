@@ -8,6 +8,7 @@ use App\Domain\Product\ProductCatalogService;
 use App\Domain\Product\ProductRepositoryInterface;
 use App\Entity\Product;
 use App\Entity\ProductImage;
+use App\Service\ProductCache;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,47 +21,32 @@ final class ProductController extends AbstractController
     private const SORTS = ['name' => 'name', 'price' => 'price', 'stock' => 'stock', 'created_at' => 'createdAt'];
 
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(Request $request, ProductRepositoryInterface $products): JsonResponse
+    public function index(Request $request, ProductRepositoryInterface $products, ProductCache $cache): JsonResponse
     {
         try {
-            $filters = $this->filters($request);
-            $sortInput = $request->query->getString('sort', 'name');
-            $sort = self::SORTS[$sortInput] ?? 'name';
-            $direction = strtolower($request->query->getString('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
-            $total = $products->countFiltered($filters);
-
-            if ($request->query->has('offset') || $request->query->has('limit')) {
-                $limit = $this->boundedInteger($request->query->get('limit'), 10, 1, 50, 'limit');
-                $offset = $this->boundedInteger($request->query->get('offset'), 0, 0, PHP_INT_MAX, 'offset');
-                $items = $products->findFiltered($filters, $sort, $direction, $limit, $offset);
-                return $this->success(array_map($this->serialize(...), $items), [
-                    'limit' => $limit, 'offset' => $offset, 'total' => $total,
-                    'sort' => $sortInput, 'direction' => $direction, 'order_tiebreaker' => 'id', 'filters' => $filters,
-                ]);
-            }
-
-            $perPage = $this->boundedInteger($request->query->get('per_page'), 10, 1, 50, 'per_page');
-            $page = $this->boundedInteger($request->query->get('page'), 1, 1, PHP_INT_MAX, 'page');
-            $lastPage = max(1, (int) ceil($total / $perPage));
-            $items = $products->findFiltered($filters, $sort, $direction, $perPage, ($page - 1) * $perPage);
-            return $this->success(array_map($this->serialize(...), $items), [
-                'current_page' => $page, 'per_page' => $perPage, 'total' => $total, 'last_page' => $lastPage,
-                'sort' => $sortInput, 'direction' => $direction, 'order_tiebreaker' => 'id', 'filters' => $filters,
-            ]);
+            $result = $cache->remember(
+                'products.list',
+                $request->query->all(),
+                fn (): array => $this->listPayload($request, $products),
+            );
+            return $this->json($result['value'], headers: ['X-Cache' => $result['hit'] ? 'HIT' : 'MISS']);
         } catch (\InvalidArgumentException $exception) {
             return $this->error($exception->getMessage(), Response::HTTP_BAD_REQUEST);
         }
     }
 
     #[Route('/{product}', name: 'show', methods: ['GET'], priority: -1)]
-    public function show(string $product, ProductRepositoryInterface $products): JsonResponse
+    public function show(string $product, ProductRepositoryInterface $products, ProductCache $cache): JsonResponse
     {
-        $item = ctype_digit($product)
-            ? $products->findOneWithImages((int) $product)
-            : $products->findOneBySlug($product);
-        return $item === null
+        $result = $cache->remember('products.detail', ['product' => $product], function () use ($product, $products): ?array {
+            $item = ctype_digit($product)
+                ? $products->findOneWithImages((int) $product)
+                : $products->findOneBySlug($product);
+            return $item === null ? null : $this->serialize($item, true);
+        });
+        return $result['value'] === null
             ? $this->error('Produto não encontrado.', Response::HTTP_NOT_FOUND)
-            : $this->success($this->serialize($item, true));
+            : $this->success($result['value'], headers: ['X-Cache' => $result['hit'] ? 'HIT' : 'MISS']);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
@@ -113,7 +99,7 @@ final class ProductController extends AbstractController
     private function filters(Request $request): array
     {
         $filters = [];
-        foreach (['name', 'sku'] as $key) {
+        foreach (['name', 'sku', 'category'] as $key) {
             if (($value = trim($request->query->getString($key))) !== '') {
                 $filters[$key] = $key === 'sku' ? strtoupper($value) : $value;
             }
@@ -163,7 +149,7 @@ final class ProductController extends AbstractController
         $data = [
             'id' => $product->getId(), 'name' => $product->getName(), 'description' => $product->getDescription(),
             'price' => $product->getPrice(), 'sku' => $product->getSku(), 'stock' => $product->getStock(),
-            'status' => $product->getStatus()->value, 'slug' => $product->getSlug(),
+            'status' => $product->getStatus()->value, 'category' => $product->getCategory(), 'slug' => $product->getSlug(),
         ];
         if ($withImages) {
             $data['images'] = array_map(static fn (ProductImage $image): array => [
@@ -173,9 +159,33 @@ final class ProductController extends AbstractController
         return $data;
     }
 
-    private function success(mixed $data, array $meta = [], int $status = Response::HTTP_OK): JsonResponse
+    private function success(mixed $data, array $meta = [], int $status = Response::HTTP_OK, array $headers = []): JsonResponse
     {
-        return $this->json(['data' => $data, 'meta' => $meta, 'errors' => []], $status);
+        return $this->json(['data' => $data, 'meta' => $meta, 'errors' => []], $status, $headers);
+    }
+
+    private function listPayload(Request $request, ProductRepositoryInterface $products): array
+    {
+        $filters = $this->filters($request);
+        $sortInput = $request->query->getString('sort', 'name');
+        $sort = self::SORTS[$sortInput] ?? 'name';
+        $direction = strtolower($request->query->getString('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $total = $products->countFiltered($filters);
+        if ($request->query->has('offset') || $request->query->has('limit')) {
+            $limit = $this->boundedInteger($request->query->get('limit'), 10, 1, 50, 'limit');
+            $offset = $this->boundedInteger($request->query->get('offset'), 0, 0, PHP_INT_MAX, 'offset');
+            return ['data' => array_map($this->serialize(...), $products->findFiltered($filters, $sort, $direction, $limit, $offset)), 'meta' => [
+                'limit' => $limit, 'offset' => $offset, 'total' => $total, 'sort' => $sortInput,
+                'direction' => $direction, 'order_tiebreaker' => 'id', 'filters' => $filters,
+            ], 'errors' => []];
+        }
+        $perPage = $this->boundedInteger($request->query->get('per_page'), 10, 1, 50, 'per_page');
+        $page = $this->boundedInteger($request->query->get('page'), 1, 1, PHP_INT_MAX, 'page');
+        return ['data' => array_map($this->serialize(...), $products->findFiltered($filters, $sort, $direction, $perPage, ($page - 1) * $perPage)), 'meta' => [
+            'current_page' => $page, 'per_page' => $perPage, 'total' => $total,
+            'last_page' => max(1, (int) ceil($total / $perPage)), 'sort' => $sortInput,
+            'direction' => $direction, 'order_tiebreaker' => 'id', 'filters' => $filters,
+        ], 'errors' => []];
     }
 
     private function error(string $message, int $status): JsonResponse

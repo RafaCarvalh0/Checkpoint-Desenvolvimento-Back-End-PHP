@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 {% block title %}{{ product.name }}{% endblock %}
 {% block body %}
-<p><a href="{{ path('products_index') }}">← Produtos</a></p><div class="card"><h1>{{ product.name }}</h1><p class="muted">{{ product.sku }} · {{ product.status.value == 'active' ? 'Ativo' : 'Inativo' }}</p><p>{{ product.description|default('Sem descrição.') }}</p><p><strong>R$ {{ product.price|number_format(2, ',', '.') }}</strong> · Estoque: {{ product.stock }}</p>
+<p><a href="{{ path('products_index') }}">← Produtos</a></p><div class="card"><h1>{{ product.name }}</h1><p class="muted">{{ product.sku }} · {{ product.category }} · {{ product.status.value == 'active' ? 'Ativo' : 'Inativo' }}</p><p>{{ product.description|default('Sem descrição.') }}</p><p><strong>R$ {{ product.price|number_format(2, ',', '.') }}</strong> · Estoque: {{ product.stock }}</p>
 {% for image in product.images %}<img src="{{ image.url }}" alt="{{ product.name }}">{% endfor %}
 <p><a class="button" href="{{ path('products_edit',{id:product.id}) }}">Editar</a></p><form method="post" action="{{ path('products_delete',{id:product.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('delete_product_' ~ product.id) }}"><button class="danger">Excluir</button></form></div>
 {% endblock %}

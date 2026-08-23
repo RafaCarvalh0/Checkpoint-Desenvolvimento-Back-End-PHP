@@ -22,6 +22,7 @@ final class ProductControllerTest extends WebTestCase
         $schema = new SchemaTool($entityManager);
         $schema->dropSchema($metadata);
         $schema->createSchema($metadata);
+        self::getContainer()->get('cache.products')->clear();
     }
 
     public function testCompleteApiCrudAndCheckpointOnePayload(): void
@@ -29,6 +30,7 @@ final class ProductControllerTest extends WebTestCase
         $this->client->jsonRequest('POST', '/api/v1/products', [
             'name' => 'Cafeteira Elétrica', 'description' => 'Cafeteira inox', 'price' => 199.90,
             'sku' => 'caf-001', 'stock' => 8, 'status' => 'active',
+            'category' => 'Eletrodomésticos',
             'images' => ['https://example.com/cafeteira.jpg'],
         ]);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
@@ -43,13 +45,18 @@ final class ProductControllerTest extends WebTestCase
 
         $this->client->request('GET', '/api/v1/products/cafeteira-eletrica');
         self::assertResponseIsSuccessful();
+        self::assertSame('MISS', $this->client->getResponse()->headers->get('X-Cache'));
         self::assertSame('Cafeteira Elétrica', $this->data()['data']['name']);
+        $this->client->request('GET', '/api/v1/products/cafeteira-eletrica');
+        self::assertSame('HIT', $this->client->getResponse()->headers->get('X-Cache'));
 
         $id = $created['id'];
         $this->client->jsonRequest('PATCH', "/api/v1/products/$id", ['stock' => 4, 'status' => 'inactive']);
         self::assertResponseIsSuccessful();
         self::assertSame(4, $this->data()['data']['stock']);
         self::assertSame('inactive', $this->data()['data']['status']);
+        $this->client->request('GET', "/api/v1/products/$id");
+        self::assertSame('MISS', $this->client->getResponse()->headers->get('X-Cache'));
 
         $this->client->request('DELETE', "/api/v1/products/$id");
         self::assertResponseIsSuccessful();
@@ -87,10 +94,31 @@ final class ProductControllerTest extends WebTestCase
         self::assertSelectorTextContains('table', 'Produto Twig');
     }
 
-    private function createProduct(string $name, int $price, string $sku): void
+    public function testAggregatedAndLowStockReports(): void
+    {
+        $this->createProduct('Mouse', 100, 'MOU-001', 'Informática', 2);
+        $this->createProduct('Teclado', 200, 'TEC-001', 'Informática', 10);
+        $this->createProduct('Caderno', 30, 'CAD-001', 'Papelaria', 1);
+
+        $this->client->request('GET', '/api/v1/reports/products-by-category');
+        self::assertResponseIsSuccessful();
+        self::assertSame('MISS', $this->client->getResponse()->headers->get('X-Cache'));
+        self::assertCount(2, $this->data()['data']);
+        self::assertSame(2, $this->data()['data'][0]['products']);
+
+        $this->client->request('GET', '/api/v1/reports/low-stock?threshold=3');
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $this->data()['data']);
+
+        $this->client->request('GET', '/reports');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'Relatórios');
+    }
+
+    private function createProduct(string $name, int $price, string $sku, string $category = 'Sem categoria', int $stock = 1): void
     {
         $this->client->jsonRequest('POST', '/api/v1/products', [
-            'name' => $name, 'price' => $price, 'sku' => $sku, 'stock' => 1, 'status' => 'active',
+            'name' => $name, 'price' => $price, 'sku' => $sku, 'stock' => $stock, 'status' => 'active', 'category' => $category,
         ]);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
     }

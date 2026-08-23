@@ -1,5 +1,9 @@
 
 services:
+  redis:
+    ports:
+      - "6379:6379"
+
 ###> doctrine/doctrine-bundle ###
   database:
     ports:

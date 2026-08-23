@@ -28,6 +28,7 @@ final class ProductController extends AbstractController
             'name' => $request->query->getString('name'),
             'sku' => $request->query->getString('sku'),
             'status' => $request->query->getString('status'),
+            'category' => $request->query->getString('category'),
             'min_price' => $request->query->get('min_price'),
             'max_price' => $request->query->get('max_price'),
         ], static fn (mixed $value): bool => $value !== null && $value !== '');
@@ -108,7 +109,7 @@ final class ProductController extends AbstractController
     private function formData(Request $request): array
     {
         if (!$request->isMethod('POST')) {
-            return ['name' => '', 'description' => '', 'price' => '', 'sku' => '', 'stock' => 0, 'status' => 'active', 'images_text' => ''];
+            return ['name' => '', 'description' => '', 'price' => '', 'sku' => '', 'stock' => 0, 'status' => 'active', 'category' => 'Sem categoria', 'images_text' => ''];
         }
         $data = $request->request->all();
         $data['images'] = array_values(array_filter(array_map('trim', preg_split('/\R/', (string) ($data['images_text'] ?? '')) ?: [])));
@@ -120,6 +121,7 @@ final class ProductController extends AbstractController
         return [
             'name' => $product->getName(), 'description' => $product->getDescription(), 'price' => $product->getPrice(),
             'sku' => $product->getSku(), 'stock' => $product->getStock(), 'status' => $product->getStatus()->value,
+            'category' => $product->getCategory(),
             'images_text' => implode("\n", array_map(static fn ($image): string => $image->getUrl(), $product->getImages()->toArray())),
         ];
     }

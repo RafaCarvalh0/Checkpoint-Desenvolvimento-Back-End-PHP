@@ -18,4 +18,10 @@ interface ProductRepositoryInterface
     public function findFiltered(array $filters, string $sort = 'name', string $direction = 'asc', ?int $limit = null, int $offset = 0): array;
 
     public function countFiltered(array $filters): int;
+
+    /** @return list<array{category: string, products: int|string, totalStock: int|string, averagePrice: string}> */
+    public function summarizeByCategory(): array;
+
+    /** @return list<Product> */
+    public function findLowStock(int $threshold): array;
 }

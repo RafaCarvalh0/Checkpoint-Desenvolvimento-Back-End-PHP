@@ -25,6 +25,7 @@ final class ProductCatalogService
             $sku,
             $this->integer($data, 'stock'),
             $this->status($data['status'] ?? 'active'),
+            isset($data['category']) ? (string) $data['category'] : 'Sem categoria',
         );
         if (array_key_exists('images', $data)) {
             $product->replaceImages(is_array($data['images']) ? $data['images'] : []);
@@ -45,7 +46,8 @@ final class ProductCatalogService
             ->changeDescription(isset($data['description']) ? (string) $data['description'] : null)
             ->changePrice($this->number($data, 'price'))
             ->changeSku($sku)
-            ->changeStock($this->integer($data, 'stock'));
+            ->changeStock($this->integer($data, 'stock'))
+            ->changeCategory(isset($data['category']) ? (string) $data['category'] : $product->getCategory());
         $this->status($data['status'] ?? 'active') === ProductStatus::Active
             ? $product->activate()
             : $product->deactivate();

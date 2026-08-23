@@ -1,0 +1,7 @@
+{% extends 'base.html.twig' %}
+{% block title %}Relatórios{% endblock %}
+{% block body %}
+<h1>Relatórios</h1>
+<div class="card"><h2>Produtos ativos por categoria</h2><table><thead><tr><th>Categoria</th><th>Produtos</th><th>Estoque total</th><th>Preço médio</th></tr></thead><tbody>{% for row in categories %}<tr><td>{{ row.category }}</td><td>{{ row.products }}</td><td>{{ row.totalStock }}</td><td>R$ {{ row.averagePrice|number_format(2, ',', '.') }}</td></tr>{% else %}<tr><td colspan="4">Sem dados.</td></tr>{% endfor %}</tbody></table></div>
+<div class="card"><h2>Estoque baixo (até 5)</h2><table><thead><tr><th>Produto</th><th>SKU</th><th>Categoria</th><th>Estoque</th></tr></thead><tbody>{% for product in lowStock %}<tr><td>{{ product.name }}</td><td>{{ product.sku }}</td><td>{{ product.category }}</td><td>{{ product.stock }}</td></tr>{% else %}<tr><td colspan="4">Nenhum produto com estoque baixo.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

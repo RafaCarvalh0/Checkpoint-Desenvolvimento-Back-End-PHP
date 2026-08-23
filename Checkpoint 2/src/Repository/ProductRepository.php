@@ -77,6 +77,28 @@ final class ProductRepository extends ServiceEntityRepository implements Product
             ->getQuery()->getSingleScalarResult();
     }
 
+    public function summarizeByCategory(): array
+    {
+        return $this->createQueryBuilder('product')
+            ->select('product.category AS category')
+            ->addSelect('COUNT(product.id) AS products')
+            ->addSelect('SUM(product.stock) AS totalStock')
+            ->addSelect('AVG(product.price) AS averagePrice')
+            ->andWhere('product.status = :status')->setParameter('status', ProductStatus::Active)
+            ->groupBy('product.category')
+            ->orderBy('product.category', 'ASC')
+            ->getQuery()->getArrayResult();
+    }
+
+    public function findLowStock(int $threshold): array
+    {
+        return $this->createQueryBuilder('product')
+            ->andWhere('product.status = :status')->setParameter('status', ProductStatus::Active)
+            ->andWhere('product.stock <= :threshold')->setParameter('threshold', $threshold)
+            ->orderBy('product.stock', 'ASC')
+            ->getQuery()->getResult();
+    }
+
     private function filteredQuery(array $filters): QueryBuilder
     {
         $query = $this->createQueryBuilder('product');
@@ -97,6 +119,9 @@ final class ProductRepository extends ServiceEntityRepository implements Product
         }
         if (filter_var($filters['in_stock'] ?? false, FILTER_VALIDATE_BOOL)) {
             $query->andWhere('product.stock > 0');
+        }
+        if (is_string($filters['category'] ?? null) && trim($filters['category']) !== '') {
+            $query->andWhere('product.category = :category')->setParameter('category', trim($filters['category']));
         }
         return $query;
     }

@@ -21,6 +21,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Index(columns: ['price'], name: 'idx_products_price')]
 #[ORM\Index(columns: ['status'], name: 'idx_products_status')]
 #[ORM\Index(columns: ['status', 'stock'], name: 'idx_products_status_stock')]
+#[ORM\Index(columns: ['status', 'category'], name: 'idx_products_status_category')]
 #[ORM\UniqueConstraint(columns: ['sku'], name: 'uniq_products_sku')]
 #[UniqueEntity(fields: ['sku'], message: 'Já existe um produto com este SKU.')]
 class Product
@@ -55,6 +56,11 @@ class Product
     #[Assert\PositiveOrZero(message: 'O estoque não pode ser negativo.')]
     private int $stock;
 
+    #[ORM\Column(length: 100, options: ['default' => 'Sem categoria'])]
+    #[Assert\NotBlank(message: 'Informe a categoria do produto.')]
+    #[Assert\Length(max: 100)]
+    private string $category;
+
     #[ORM\Column(length: 20, enumType: ProductStatus::class, options: ['default' => 'active'])]
     private ProductStatus $status;
 
@@ -76,6 +82,7 @@ class Product
         string $sku,
         int $stock,
         ProductStatus $status = ProductStatus::Active,
+        string $category = 'Sem categoria',
     ) {
         $this->images = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
@@ -85,6 +92,7 @@ class Product
         $this->changePrice($price);
         $this->changeSku($sku);
         $this->changeStock($stock);
+        $this->changeCategory($category);
         $this->status = $status;
     }
 
@@ -95,6 +103,7 @@ class Product
     public function getPriceInCents(): int { return (int) round($this->getPrice() * 100); }
     public function getSku(): string { return $this->sku; }
     public function getStock(): int { return $this->stock; }
+    public function getCategory(): string { return $this->category; }
     public function getStatus(): ProductStatus { return $this->status; }
     public function isActive(): bool { return $this->status === ProductStatus::Active; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
@@ -157,6 +166,19 @@ class Product
             throw new \InvalidArgumentException('O estoque do produto não pode ser negativo.');
         }
         $this->stock = $stock;
+        return $this->touch();
+    }
+
+    public function changeCategory(string $category): self
+    {
+        $category = trim($category);
+        if ($category === '') {
+            throw new \InvalidArgumentException('A categoria do produto é obrigatória.');
+        }
+        if (mb_strlen($category) > 100) {
+            throw new \InvalidArgumentException('A categoria deve ter no máximo 100 caracteres.');
+        }
+        $this->category = $category;
         return $this->touch();
     }
 

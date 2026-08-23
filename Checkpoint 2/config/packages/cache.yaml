@@ -1,3 +1,15 @@
 framework:
     cache:
         prefix_seed: checkpoint2/catalog
+        default_redis_provider: '%env(REDIS_URL)%'
+        pools:
+            cache.products:
+                adapter: cache.adapter.redis
+                default_lifetime: 300
+
+when@test:
+    framework:
+        cache:
+            pools:
+                cache.products:
+                    adapter: cache.adapter.filesystem

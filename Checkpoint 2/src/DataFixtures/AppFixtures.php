@@ -11,9 +11,22 @@ class AppFixtures extends Fixture
 {
     public function load(ObjectManager $manager): void
     {
-        $manager->persist(new Product('Teclado Mecânico', 'Teclado ABNT2', 249.90, 'TEC-001', 10));
-        $manager->persist(new Product('Mouse Óptico', null, 89.90, 'MOU-001', 5));
-        $manager->persist(new Product('Monitor 24 Polegadas', 'Monitor Full HD', 899, 'MON-001', 2, ProductStatus::Inactive));
+        $categories = ['Informática', 'Escritório', 'Acessórios', 'Áudio'];
+        for ($index = 1; $index <= 1000; ++$index) {
+            $manager->persist(new Product(
+                sprintf('Produto %04d', $index),
+                'Produto gerado para testes de carga e profiling.',
+                ($index % 500) + 9.90,
+                sprintf('PROD-%04d', $index),
+                $index % 51,
+                $index % 20 === 0 ? ProductStatus::Inactive : ProductStatus::Active,
+                $categories[$index % count($categories)],
+            ));
+            if ($index % 100 === 0) {
+                $manager->flush();
+                $manager->clear();
+            }
+        }
 
         $manager->flush();
     }
