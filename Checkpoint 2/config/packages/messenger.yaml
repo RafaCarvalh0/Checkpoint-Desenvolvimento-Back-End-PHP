@@ -13,6 +13,7 @@ framework:
             'App\Message\ProductCreatedNotification': async
             'App\Message\GenerateProductThumbnail': async
             'App\Message\CleanupOrphanImages': async
+            'App\Message\SyncProductSearchIndex': async
 
 when@test:
     framework:

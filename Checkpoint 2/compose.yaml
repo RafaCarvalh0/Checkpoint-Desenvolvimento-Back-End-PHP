@@ -11,6 +11,16 @@ services:
     volumes:
       - redis_data:/data
 
+  mongodb:
+    image: mongo:8
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - mongodb_data:/data/db
+
 ###> doctrine/doctrine-bundle ###
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
@@ -32,6 +42,7 @@ services:
 
 volumes:
   redis_data:
+  mongodb_data:
 ###> doctrine/doctrine-bundle ###
   database_data:
 ###< doctrine/doctrine-bundle ###

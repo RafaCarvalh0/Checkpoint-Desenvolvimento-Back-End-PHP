@@ -1,0 +1,139 @@
+name: Checkpoint 2 CI/CD
+
+on:
+  push:
+    branches: [main, staging]
+    paths:
+      - 'Checkpoint 2/**'
+      - '.github/workflows/checkpoint2-ci.yml'
+  pull_request:
+    paths:
+      - 'Checkpoint 2/**'
+      - '.github/workflows/checkpoint2-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: 'Checkpoint 2'
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: ctype, iconv, intl, mbstring, pdo_sqlite, gd
+          coverage: none
+          tools: composer:v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-${{ hashFiles('Checkpoint 2/composer.lock') }}
+      - run: composer validate --strict --no-check-publish
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: php bin/console lint:container
+      - run: php bin/console lint:yaml config translations
+      - run: php bin/console lint:twig templates
+      - run: php bin/console doctrine:migrations:migrate --no-interaction
+        env:
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/ci.db
+      - run: php bin/console doctrine:schema:validate
+        env:
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/ci.db
+      - run: php bin/phpunit
+
+  polyglot:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+      mongodb:
+        image: mongo:8
+        ports: ['27017:27017']
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: ctype, iconv, intl, mbstring, pdo_sqlite, mongodb
+          coverage: none
+          tools: composer:v2
+      - run: composer install --prefer-dist --no-interaction --no-progress
+      - name: Install optional MongoDB client
+        run: composer require 'mongodb/mongodb:^2.1' --no-interaction --no-progress
+      - run: php bin/console doctrine:migrations:migrate --no-interaction
+        env:
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/polyglot.db
+      - run: php bin/console doctrine:fixtures:load --no-interaction
+        env:
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/polyglot.db
+      - run: php bin/console app:search:reindex-products
+        env:
+          DATABASE_URL: sqlite:///%kernel.project_dir%/var/polyglot.db
+          MONGODB_ENABLED: 1
+          MONGODB_URL: mongodb://127.0.0.1:27017
+      - name: Check Redis
+        run: php -r "require 'vendor/autoload.php'; (new Predis\\Client(getenv('REDIS_URL')))->ping();"
+        env:
+          REDIS_URL: redis://127.0.0.1:6379
+
+  build:
+    needs: [quality, polyglot]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: ctype, iconv, intl, mbstring, pdo_sqlite, gd
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+        env:
+          APP_ENV: prod
+          APP_DEBUG: 0
+      - run: php bin/console cache:warmup
+        env:
+          APP_ENV: prod
+          APP_DEBUG: 0
+      - name: Package application
+        run: tar --exclude='./var/*' --exclude='./.env.local' -czf ../checkpoint2-${{ github.sha }}.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: checkpoint2-${{ github.sha }}
+          path: checkpoint2-${{ github.sha }}.tar.gz
+          retention-days: 14
+
+  staging-migrations:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: ctype, iconv, intl, mbstring, pdo_pgsql
+          coverage: none
+          tools: composer:v2
+      - run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+      - name: Run staging migrations
+        run: php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+        env:
+          APP_ENV: prod
+          APP_DEBUG: 0
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

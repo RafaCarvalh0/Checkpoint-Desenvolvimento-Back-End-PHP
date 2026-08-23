@@ -74,6 +74,11 @@ final class ProductControllerTest extends WebTestCase
         self::assertSame('Teclado', $this->data()['data'][0]['name']);
         self::assertSame(2, $this->data()['meta']['total']);
 
+        $this->client->request('GET', '/api/v1/products/search?q=Mouse');
+        self::assertResponseIsSuccessful();
+        self::assertSame('doctrine', $this->data()['meta']['driver']);
+        self::assertSame('Mouse', $this->data()['data'][0]['name']);
+
         $this->client->request('GET', '/api/v1/products?limit=abc');
         self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
         self::assertSame('O parâmetro limit deve ser numérico.', $this->data()['errors'][0]['message']);

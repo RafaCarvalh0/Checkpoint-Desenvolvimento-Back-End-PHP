@@ -72,6 +72,10 @@
             "@auto-scripts"
         ]
     },
+    "suggest": {
+        "ext-mongodb": "Necessária para habilitar o índice de busca poliglota em MongoDB.",
+        "mongodb/mongodb": "Cliente opcional usado pelo repositório de busca MongoDB."
+    },
     "conflict": {
         "symfony/symfony": "*"
     },

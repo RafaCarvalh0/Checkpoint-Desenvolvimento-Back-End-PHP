@@ -27,6 +27,7 @@ A configuração padrão usa SQLite. Para MySQL/MariaDB, sobrescreva `DATABASE_U
 Configuração, medições e estratégia de performance: [`docs/performance.md`](docs/performance.md).
 Formulários, mídia, e-mail e fila: [`docs/forms-media-queue.md`](docs/forms-media-queue.md).
 Arquitetura, observabilidade e publicação: [`docs/deploy.md`](docs/deploy.md).
+CI/CD e persistência Redis/MongoDB: [`docs/ci-cd-polyglot.md`](docs/ci-cd-polyglot.md).
 
 ## Fila assíncrona
 

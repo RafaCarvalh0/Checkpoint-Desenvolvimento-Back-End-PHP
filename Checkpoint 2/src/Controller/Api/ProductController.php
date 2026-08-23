@@ -7,6 +7,7 @@ namespace App\Controller\Api;
 use App\Domain\Product\ProductCatalogService;
 use App\Domain\Product\ProductInput;
 use App\Domain\Product\ProductRepositoryInterface;
+use App\Domain\Product\ProductSearchIndexInterface;
 use App\Http\Api\ProductApiPresenter;
 use App\Http\Api\ProductListQuery;
 use App\Service\ProductCache;
@@ -47,6 +48,17 @@ final class ProductController extends AbstractController
         return $result['value'] === null
             ? $this->api->error($this->translator->trans('product.not_found'), Response::HTTP_NOT_FOUND)
             : $this->api->success($result['value'], headers: ['X-Cache' => $result['hit'] ? 'HIT' : 'MISS']);
+    }
+
+    #[Route('/search', name: 'search', methods: ['GET'], priority: 10)]
+    public function search(Request $request, ProductSearchIndexInterface $searchIndex): JsonResponse
+    {
+        $term = trim($request->query->getString('q'));
+        if ($term === '') {
+            return $this->api->error($this->translator->trans('product.search_required'), Response::HTTP_BAD_REQUEST);
+        }
+        $limit = max(1, min(50, $request->query->getInt('limit', 20)));
+        return $this->api->success($searchIndex->search($term, $limit), ['driver' => $searchIndex->driver()]);
     }
 
     #[Route('', name: 'create', methods: ['POST'])]
