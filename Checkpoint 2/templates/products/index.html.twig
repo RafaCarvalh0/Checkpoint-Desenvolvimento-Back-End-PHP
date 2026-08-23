@@ -1,0 +1,16 @@
+{% extends 'base.html.twig' %}
+{% block title %}Produtos{% endblock %}
+{% block body %}
+<h1>Produtos</h1><a class="button" href="{{ path('products_create') }}">Novo produto</a>
+<form class="card grid" method="get">
+    <label>Nome<input name="name" value="{{ filters.name|default('') }}"></label>
+    <label>SKU<input name="sku" value="{{ filters.sku|default('') }}"></label>
+    <label>Preço mínimo<input type="number" step="0.01" min="0" name="min_price" value="{{ filters.min_price|default('') }}"></label>
+    <label>Preço máximo<input type="number" step="0.01" min="0" name="max_price" value="{{ filters.max_price|default('') }}"></label>
+    <label>Status<select name="status"><option value="">Todos</option><option value="active" {{ filters.status|default('') == 'active' ? 'selected' }}>Ativo</option><option value="inactive" {{ filters.status|default('') == 'inactive' ? 'selected' }}>Inativo</option></select></label>
+    <label>&nbsp;<button>Filtrar</button></label>
+</form>
+<div class="card"><table><thead><tr><th>Nome</th><th>SKU</th><th>Preço</th><th>Estoque</th><th>Status</th></tr></thead><tbody>
+{% for product in products %}<tr><td><a href="{{ path('products_show',{id:product.id}) }}">{{ product.name }}</a></td><td>{{ product.sku }}</td><td>R$ {{ product.price|number_format(2, ',', '.') }}</td><td>{{ product.stock }}</td><td>{{ product.status.value == 'active' ? 'Ativo' : 'Inativo' }}</td></tr>{% else %}<tr><td colspan="5">Nenhum produto encontrado.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

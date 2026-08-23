@@ -16,83 +16,86 @@ final class ProductControllerTest extends WebTestCase
 
     protected function setUp(): void
     {
-        $this->client = static::createClient();
-        $entityManager = static::getContainer()->get(EntityManagerInterface::class);
-        $schemaTool = new SchemaTool($entityManager);
+        $this->client = self::createClient();
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
         $metadata = $entityManager->getMetadataFactory()->getAllMetadata();
-        $schemaTool->dropSchema($metadata);
-        $schemaTool->createSchema($metadata);
+        $schema = new SchemaTool($entityManager);
+        $schema->dropSchema($metadata);
+        $schema->createSchema($metadata);
     }
 
-    public function testCompleteCrudFlow(): void
+    public function testCompleteApiCrudAndCheckpointOnePayload(): void
     {
-        $this->client->jsonRequest('POST', '/api/products', [
-            'name' => 'Teclado Mecânico',
-            'description' => 'Switch marrom',
-            'price' => 299.9,
-            'active' => true,
+        $this->client->jsonRequest('POST', '/api/v1/products', [
+            'name' => 'Cafeteira Elétrica', 'description' => 'Cafeteira inox', 'price' => 199.90,
+            'sku' => 'caf-001', 'stock' => 8, 'status' => 'active',
+            'images' => ['https://example.com/cafeteira.jpg'],
         ]);
-
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
-        $created = $this->responseData();
-        self::assertSame('299.90', $created['price']);
-        self::assertSame('Teclado Mecânico', $created['name']);
+        $created = $this->data()['data'];
+        self::assertSame('CAF-001', $created['sku']);
+        self::assertSame('cafeteira-eletrica', $created['slug']);
+        self::assertCount(1, $created['images']);
+
+        $this->client->request('GET', '/api/v1/products?name=cafeteira&status=active&min_price=100&max_price=250');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->data()['data']);
+
+        $this->client->request('GET', '/api/v1/products/cafeteira-eletrica');
+        self::assertResponseIsSuccessful();
+        self::assertSame('Cafeteira Elétrica', $this->data()['data']['name']);
+
         $id = $created['id'];
-
-        $this->client->request('GET', "/api/products/$id");
+        $this->client->jsonRequest('PATCH', "/api/v1/products/$id", ['stock' => 4, 'status' => 'inactive']);
         self::assertResponseIsSuccessful();
-        self::assertSame($id, $this->responseData()['id']);
+        self::assertSame(4, $this->data()['data']['stock']);
+        self::assertSame('inactive', $this->data()['data']['status']);
 
-        $this->client->jsonRequest('PATCH', "/api/products/$id", [
-            'price' => '249.50',
-            'active' => false,
-        ]);
+        $this->client->request('DELETE', "/api/v1/products/$id");
         self::assertResponseIsSuccessful();
-        self::assertSame('249.50', $this->responseData()['price']);
-        self::assertFalse($this->responseData()['active']);
-
-        $this->client->request('DELETE', "/api/products/$id");
-        self::assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
-
-        $this->client->request('GET', "/api/products/$id");
+        $this->client->request('GET', "/api/v1/products/$id");
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
 
-    public function testFiltersByNamePriceRangeAndStatus(): void
+    public function testApiPaginationSortingAndValidation(): void
     {
-        $this->createProduct('Mouse Gamer', 150, true);
-        $this->createProduct('Mouse Básico', 50, false);
-        $this->createProduct('Monitor', 900, true);
+        $this->createProduct('Mouse', 80, 'MOU-001');
+        $this->createProduct('Teclado', 200, 'TEC-001');
+        $this->client->request('GET', '/api/v1/products?sort=price&direction=desc&per_page=1');
+        self::assertSame('Teclado', $this->data()['data'][0]['name']);
+        self::assertSame(2, $this->data()['meta']['total']);
 
-        $this->client->request('GET', '/api/products?name=mouse&minPrice=100&maxPrice=200&active=true');
+        $this->client->request('GET', '/api/v1/products?limit=abc');
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        self::assertSame('O parâmetro limit deve ser numérico.', $this->data()['errors'][0]['message']);
+    }
 
+    public function testTwigCatalogWorksWithoutInertiaOrReact(): void
+    {
+        $crawler = $this->client->request('GET', '/products/create');
         self::assertResponseIsSuccessful();
-        $products = $this->responseData();
-        self::assertCount(1, $products);
-        self::assertSame('Mouse Gamer', $products[0]['name']);
+        $form = $crawler->selectButton('Salvar')->form([
+            'name' => 'Produto Twig', 'sku' => 'TWIG-001', 'price' => '25.00',
+            'stock' => '2', 'status' => 'active', 'description' => 'Renderizado no servidor.',
+        ]);
+        $this->client->submit($form);
+        self::assertResponseRedirects();
+
+        $this->client->request('GET', '/products');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'Produtos');
+        self::assertSelectorTextContains('table', 'Produto Twig');
     }
 
-    public function testRejectsInvalidProduct(): void
+    private function createProduct(string $name, int $price, string $sku): void
     {
-        $this->client->jsonRequest('POST', '/api/products', ['name' => '', 'price' => -1]);
-
-        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
-        self::assertArrayHasKey('name', $this->responseData()['errors']);
-        self::assertArrayHasKey('price', $this->responseData()['errors']);
-    }
-
-    private function createProduct(string $name, int $price, bool $active): void
-    {
-        $this->client->jsonRequest('POST', '/api/products', [
-            'name' => $name,
-            'price' => $price,
-            'active' => $active,
+        $this->client->jsonRequest('POST', '/api/v1/products', [
+            'name' => $name, 'price' => $price, 'sku' => $sku, 'stock' => 1, 'status' => 'active',
         ]);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
     }
 
-    /** @return array<string|int, mixed> */
-    private function responseData(): array
+    private function data(): array
     {
         return json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
     }

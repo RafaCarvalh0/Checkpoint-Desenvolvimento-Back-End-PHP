@@ -1,27 +1,23 @@
-# Checkpoint 2 — Catálogo de produtos
+# Checkpoint 2 — Migração Laravel para Symfony
 
-API REST em Symfony 7.4 com Doctrine ORM, migrations e testes de integração.
+Migração do módulo de produtos do Checkpoint 1 para Symfony 7.4 e Doctrine, sem React e sem Inertia. As páginas são renderizadas no servidor com Twig e a API preserva o formato e os comportamentos principais do nível anterior.
 
 ## Executar
 
-Instale as dependências com `composer install`. Use o PHP do XAMPP caso `php` não esteja no `PATH`:
-
 ```bash
+composer install
 /Applications/XAMPP/xamppfiles/bin/php bin/console doctrine:migrations:migrate
 /Applications/XAMPP/xamppfiles/bin/php -S localhost:8000 -t public
 ```
 
-A configuração padrão usa SQLite em `var/data_dev.db`. Para MySQL/MariaDB, sobrescreva `DATABASE_URL` em `.env.local`.
+A configuração padrão usa SQLite. Para MySQL/MariaDB, sobrescreva `DATABASE_URL` em `.env.local`.
 
-## Endpoints
+## Catálogo
 
-- `GET /api/products` — lista e filtra por `name`, `minPrice`, `maxPrice` e `active`.
-- `POST /api/products` — cria um produto.
-- `GET /api/products/{id}` — detalha um produto.
-- `PUT|PATCH /api/products/{id}` — atualiza um produto.
-- `DELETE /api/products/{id}` — exclui um produto.
-
-Campos aceitos: `name`, `description`, `price` e `active`.
+- Páginas Twig: `GET /products`, criação, visualização, edição e exclusão.
+- API: `GET|POST /api/v1/products` e `GET|PUT|PATCH|DELETE /api/v1/products/{id}`.
+- Consulta por ID ou slug, paginação, offset, ordenação e filtros por nome, SKU, preço, status e disponibilidade.
+- Domínio rico para preço, SKU, estoque e ativação; imagens persistidas em relacionamento Doctrine com `JOIN FETCH` no detalhe.
 
 ## Testes
 
